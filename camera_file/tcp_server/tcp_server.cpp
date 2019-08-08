@@ -42,10 +42,10 @@ void debug(unsigned char *buf)
     std::cout << "Opcode = 0x" << std::hex << (buf[0] & 0x0f) << std::endl;
     std::cout << "MASK = 0x" << std::hex << (buf[1] & 0x01) << std::endl;
 }
-int Read_text(unsigned char* out_message, int clientfd)
+int Read_text(unsigned char *out_message, int clientfd)
 {
     unsigned char in_buffer[1000] = {0};
-    int res = read(clientfd, in_buffer, sizeof(in_buffer));
+    int res = read(clientfd, (char*)in_buffer, sizeof(in_buffer));
     if (res > 0)
     {
         if (DEBUG)
@@ -56,40 +56,34 @@ int Read_text(unsigned char* out_message, int clientfd)
         {
             if (size <= 125)
                 getSmallText(in_buffer, out_message, size);
+            else if (size == 126)
+                getMiddleText(in_buffer, out_message, size);
             else
-                if (size == 126)
-                    getMiddleText(in_buffer, out_message, size);
-                else
-                    std::cout << "Size > 65553" << std::endl;
+                std::cout << "Size > 65553" << std::endl;
         }
         if (opcode == CLOSE_CONNECTION)
-        {
-            std::cout << "Was receive Close" << std::endl;
-            close(clientfd);
             return 1;
-        }
     }
     else
     {
         if (res < 0)
-            std::cout << "Error with read" << std::endl;
-            close(clientfd);
             return -1;
     }
+    return 0;
 }
-int Write_text(unsigned char* in_message, int clientfd)
+int Write_text(unsigned char *in_message, int clientfd)
 {
     unsigned char out_buffer[1000];
-    int message_size = (int)strlen((char*)(in_message));
-    if(message_size <= 125)
+    int message_size = (int)strlen((char *)(in_message));
+    if (message_size <= 125)
     {
-        strncpy(out_buffer + 2, in_message, message_size);
+        strncpy((char*)(out_buffer + 2), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)message_size;
     }
     else
     {
-        strncpy(out_buffer + 4, in_message, message_size);
+        strncpy((char*)(out_buffer + 4), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)126;
         out_buffer[2] = (message_size >> 8) & 0xff;
@@ -97,13 +91,12 @@ int Write_text(unsigned char* in_message, int clientfd)
     }
     if (send(clientfd, out_buffer, message_size + 4, 0) == -1) // отправка
     {
-        std::cout << "Error with send" << std::endl; 
-        close(clientfd);
+
         return -1;
     }
     return 0;
 }
-void* tcp_client_webrtc(void *arg)
+void *tcp_client_webrtc(void *arg)
 {
     args_thread a_t;
     a_t.clientfd = ((args_thread *)arg)->clientfd;
@@ -111,23 +104,26 @@ void* tcp_client_webrtc(void *arg)
     unsigned char out_message[1000] = {0};
     unsigned char in_message[1000] = {0};
     int res = Read_text(out_message, a_t.clientfd);
-    if( res < 0)
-        return -1;
+    if (res < 0)
+    {
+        std::cout << "Error with read" << std::endl;
+        close(a_t.clientfd);
+    }
     else
     {
-        if(res > 0)
+        if (res > 0)
         {
-            std::cout << "Socket was closed" << std::endl;
-            return 1;
-        }    
+            std::cout << "Was receive Close" << std::endl;
+            close(a_t.clientfd);
+        }
     }
     std::cout << out_message << std::endl;
-
+    strcpy((char*)in_message,"Hi client");
     res = Write_text(in_message, a_t.clientfd);
-    if(res != 0)
+    if (res != 0)
     {
-        std::cout << "Error with Send" << std::endl;
-        return -1;
+        std::cout << "Error with send" << std::endl;
+        close(a_t.clientfd);
     }
     return 0;
 }
