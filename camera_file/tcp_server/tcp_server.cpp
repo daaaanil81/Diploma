@@ -4,7 +4,7 @@ void getSmallText(unsigned char *in, unsigned char *out, uint &s)
 {
     unsigned char masking[4];
     std::cout << "size <= 125" << std::endl;
-    std::cout << "Size = " << s << std::endl;
+    std::cout << "Size = " << std::hex << s << std::endl;
     masking[0] = in[2];
     masking[1] = in[3];
     masking[2] = in[4];
@@ -21,7 +21,7 @@ void getMiddleText(unsigned char *in, unsigned char *out, uint &s)
     unsigned char masking[4];
     std::cout << "Size > 125 and < 65535" << std::endl;
     s = in[2] << 8 | in[3];
-    std::cout << std::dec << "Size = " << s << std::endl;
+    std::cout << std::dec << "Size = " << std::hex << s << std::endl;
     masking[0] = in[4];
     masking[1] = in[5];
     masking[2] = in[6];

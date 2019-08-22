@@ -7,7 +7,7 @@ var localStream;
 var remoteStream;
 var localConnection;
 var remoteConnection;
-var server = { iceServers: [{ 'url': 'stuns:stun.l.google.com:19302'}] };
+var server = null;
 var status;
 
 var localDescription;
