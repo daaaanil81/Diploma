@@ -25,7 +25,7 @@ app.listen(port, host, function () {
 });
 
 function handler(req, res) {
-    console.log(`${req.method} ${req.url}`);
+    //console.log(`${req.method} ${req.url}`);
     const parsedUrl = url.parse(req.url);
     //console.log(parsedUrl);
     const sanitizePath = path.normalize(parsedUrl.pathname).replace(/^(\.\.[\/\\])+/, '');

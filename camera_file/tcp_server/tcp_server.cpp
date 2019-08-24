@@ -1,4 +1,5 @@
 #include "tcp_server.h"
+#include "h264_camera.h"
 int sockfd;
 void getSmallText(unsigned char *in, unsigned char *out, uint &s)
 {
@@ -35,12 +36,12 @@ void getMiddleText(unsigned char *in, unsigned char *out, uint &s)
 }
 void debug(unsigned char *buf)
 {
-    std::cout << "FIN = 0x" << std::hex << (buf[0] & 0x01) << std::endl;
-    std::cout << "RSV1 = 0x" << std::hex << (buf[0] & 0x02) << std::endl;
-    std::cout << "RSV2 = 0x" << std::hex << (buf[0] & 0x04) << std::endl;
-    std::cout << "RSV3 = 0x" << std::hex << (buf[0] & 0x08) << std::endl;
+    std::cout << "FIN = 0x" << std::hex << ((buf[0] & 0x80) >> 7) << std::endl;
+    std::cout << "RSV1 = 0x" << std::hex << ((buf[0] & 0x40) >> 6) << std::endl;
+    std::cout << "RSV2 = 0x" << std::hex << ((buf[0] & 0x20) >> 5) << std::endl;
+    std::cout << "RSV3 = 0x" << std::hex << ((buf[0] & 0x10) >> 4) << std::endl;
     std::cout << "Opcode = 0x" << std::hex << (buf[0] & 0x0f) << std::endl;
-    std::cout << "MASK = 0x" << std::hex << (buf[1] & 0x01) << std::endl;
+    std::cout << "MASK = 0x" << std::hex << ((buf[1] & 0x80) >> 7) << std::endl;
 }
 int Read_text(unsigned char *out_message, int clientfd)
 {
@@ -73,36 +74,48 @@ int Read_text(unsigned char *out_message, int clientfd)
 }
 int Write_text(unsigned char *in_message, int clientfd)
 {
-    unsigned char out_buffer[1000];
+    unsigned char out_buffer[1024];
     int message_size = (int)strlen((char *)(in_message));
     if (message_size <= 125)
     {
         strncpy((char*)(out_buffer + 2), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)message_size;
+        std::cout << "Send text < 126" << std::endl;
+        if (send(clientfd, out_buffer, message_size + 2, 0) == -1) // отправка
+        {
+            std::cout << "Error with text < 126" << std::endl;
+            return -1;
+        }
     }
     else
     {
+        std::cout << "Send text > 126" << std::endl;
         strncpy((char*)(out_buffer + 4), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)126;
         out_buffer[2] = (message_size >> 8) & 0xff;
         out_buffer[3] = message_size & 0xff;
+        if (send(clientfd, out_buffer, message_size + 4, 0) == -1) // отправка
+        {
+            std::cout << "Error with text > 126" << std::endl;
+            return -1;
+        }
     }
-    if (send(clientfd, out_buffer, message_size + 4, 0) == -1) // отправка
-    {
-
-        return -1;
-    }
+    
     return 0;
 }
 void *tcp_client_webrtc(void *arg)
 {
     args_thread a_t;
+    char host[20] = {0};
+    int camerafd;
+    struct sockaddr_in sddr;
+    char describe[DESCRIBE_BUFFER_SIZE];
     a_t.clientfd = ((args_thread *)arg)->clientfd;
     std::cout << "clientfd: " << a_t.clientfd << std::endl;
-    unsigned char out_message[1000] = {0};
-    unsigned char in_message[1000] = {0};
+    unsigned char out_message[1024] = {0};
+    unsigned char in_message[1024] = {0};
     int res = Read_text(out_message, a_t.clientfd);
     if (res < 0)
     {
@@ -117,14 +130,46 @@ void *tcp_client_webrtc(void *arg)
             close(a_t.clientfd);
         }
     }
-    std::cout << out_message << std::endl;
-    strcpy((char*)in_message,"Hi client");
+    strcpy(host,(char*)out_message);
+    memset(out_message,0,sizeof(out_message));
+    connect_camera(sddr, camerafd, host);
+    option_to_camera(sddr, camerafd, host);
+    describe_to_camera(sddr, camerafd, host, (char*)out_message);
+    strcpy((char*)in_message,"OK");
     res = Write_text(in_message, a_t.clientfd);
     if (res != 0)
     {
         std::cout << "Error with send" << std::endl;
         close(a_t.clientfd);
     }
+    
+    strcpy(describe, strstr((char*)out_message,"v="));
+    memset(in_message,0,sizeof(in_message));
+    sprintf((char*)in_message, "%s%s", type_sdp, describe);
+    res = Write_text(in_message, a_t.clientfd);
+    if (res != 0)
+    {
+        std::cout << "Error with send" << std::endl;
+        close(a_t.clientfd);
+    }
+    /*memset(out_message,0,sizeof(out_message));
+    res = Read_text(out_message, a_t.clientfd);
+    if (res < 0)
+    {
+        std::cout << "Error with read" << std::endl;
+        close(a_t.clientfd);
+    }
+    else
+    {
+        if (res > 0)
+        {
+            std::cout << "Was receive Close" << std::endl;
+            close(a_t.clientfd);
+        }
+    }
+    std::cout << out_message << std::endl;
+    memset(out_message,0,sizeof(out_message));
+    */
     return 0;
 }
 void signalInt(int signum)
@@ -199,6 +244,7 @@ int main(int argv, char **argc)
                     time.clientfd = clientfd;
                     pthread_create(&threads[size_client], 0, tcp_client_webrtc, &time);
                     pthread_join(threads[size_client], 0);
+                    break;
                 }
                 else
                 {

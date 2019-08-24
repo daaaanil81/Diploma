@@ -1,0 +1,30 @@
+body {
+    font-family: sans-serif;
+}
+
+video {
+    max-width: 100%;
+    width: 320px;
+    height: 250px;
+}
+
+table {
+    margin: auto; /* Выравниваем таблицу по центру окна  */
+}
+
+h1 {
+  font-family: 'Lobster';
+  color: cornflowerblue;
+  align: center;
+}
+p {
+  color: aqua;
+}
+body {
+    background-position: center; /* Center the image */
+    background-repeat: no-repeat; /* Do not repeat the image */
+    background-attachment: fixed;
+}
+h1.stream{
+    color: white;
+}
