@@ -81,7 +81,6 @@ int Write_text(unsigned char *in_message, int clientfd)
         strncpy((char*)(out_buffer + 2), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)message_size;
-        std::cout << "Send text < 126" << std::endl;
         if (send(clientfd, out_buffer, message_size + 2, 0) == -1) // отправка
         {
             std::cout << "Error with text < 126" << std::endl;
@@ -90,7 +89,6 @@ int Write_text(unsigned char *in_message, int clientfd)
     }
     else
     {
-        std::cout << "Send text > 126" << std::endl;
         strncpy((char*)(out_buffer + 4), (char*)in_message, message_size);
         out_buffer[0] = 0x81;
         out_buffer[1] = (char)126;
@@ -105,6 +103,38 @@ int Write_text(unsigned char *in_message, int clientfd)
     
     return 0;
 }
+int sdpParse(char* des)
+{
+    char version[] = "v=0\r\no=Daniil_SDP_PARTA ";
+    char sdp_f[] = " 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\nm=video 0 RTP/AVP 96\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\n";
+    char sdp_e[] = "\r\na=ice-pwd:7c10144cbaaeed7af228a76356db9d29\r\na=ice-ufrag:21c167f4\r\na=rtpmap:96 H264/90000\r\n";
+    char fmtp[60] = {0};
+    char sess_version[20] = {0};
+    char* t;
+    char* time;
+    char* payload_type;
+    
+    t = strstr(des, "o=");
+    t = strstr(t, " ");
+    t += 1;
+    time = t;
+    time = strstr(t, " ");
+    strncpy(sess_version, t, time - t);
+    t = strstr(des, "a=fmtp");
+    /*
+     payload_type = t + 7;
+    strncpy(fmtp, t, payload_type - t);
+    strcat(fmtp, "120 ");
+    t = strstr(des, "packetization");
+    */
+    time = strstr(des, "sprop-parameter-sets");
+    strncat(fmtp, t, time - t - 2);
+    memset((char*)des, 0, sizeof(des));
+    sprintf(des, "%s%s%s%s%s", version, sess_version, sdp_f, fmtp, sdp_e);
+    if(DEBUG)
+        std::cout << des << std::endl;
+    return 0;
+}
 void *tcp_client_webrtc(void *arg)
 {
     args_thread a_t;
@@ -114,36 +144,53 @@ void *tcp_client_webrtc(void *arg)
     char describe[DESCRIBE_BUFFER_SIZE];
     a_t.clientfd = ((args_thread *)arg)->clientfd;
     std::cout << "clientfd: " << a_t.clientfd << std::endl;
-    unsigned char out_message[1024] = {0};
-    unsigned char in_message[1024] = {0};
+    unsigned char out_message[BUFFER_OUT_OR_IN] = {0};
+    unsigned char in_message[BUFFER_OUT_OR_IN] = {0};
     int res = Read_text(out_message, a_t.clientfd);
     if (res < 0)
     {
         std::cout << "Error with read" << std::endl;
-        close(a_t.clientfd);
+        return 0;
     }
     else
     {
         if (res > 0)
         {
             std::cout << "Was receive Close" << std::endl;
-            close(a_t.clientfd);
+            return 0;
         }
     }
     strcpy(host,(char*)out_message);
     memset(out_message,0,sizeof(out_message));
-    connect_camera(sddr, camerafd, host);
-    option_to_camera(sddr, camerafd, host);
-    describe_to_camera(sddr, camerafd, host, (char*)out_message);
+    if(connect_camera(sddr, camerafd, host) != 0)
+    {
+        strcpy((char*)in_message,"Error with connect to camera");
+        res = Write_text(in_message, a_t.clientfd);
+        if (res != 0)
+        {
+            std::cout << "Error with send" << std::endl;
+        }
+        return 0;
+    }
     strcpy((char*)in_message,"OK");
     res = Write_text(in_message, a_t.clientfd);
     if (res != 0)
     {
         std::cout << "Error with send" << std::endl;
-        close(a_t.clientfd);
+        return 0;
     }
-    
+    if(option_to_camera(sddr, camerafd, host) != 0)
+    {
+        std::cout << "Error with option" << std::endl;
+        return 0;
+    }
+    if(describe_to_camera(sddr, camerafd, host, (char*)out_message) != 0)
+    {
+        std::cout << "Error with describe" << std::endl;
+        return 0;
+    }
     strcpy(describe, strstr((char*)out_message,"v="));
+    sdpParse(describe);
     memset(in_message,0,sizeof(in_message));
     sprintf((char*)in_message, "%s%s", type_sdp, describe);
     res = Write_text(in_message, a_t.clientfd);
@@ -152,7 +199,8 @@ void *tcp_client_webrtc(void *arg)
         std::cout << "Error with send" << std::endl;
         close(a_t.clientfd);
     }
-    /*memset(out_message,0,sizeof(out_message));
+    
+    memset(out_message,0,sizeof(out_message));
     res = Read_text(out_message, a_t.clientfd);
     if (res < 0)
     {
@@ -164,12 +212,11 @@ void *tcp_client_webrtc(void *arg)
         if (res > 0)
         {
             std::cout << "Was receive Close" << std::endl;
-            close(a_t.clientfd);
+            return 0;
         }
     }
     std::cout << out_message << std::endl;
     memset(out_message,0,sizeof(out_message));
-    */
     return 0;
 }
 void signalInt(int signum)

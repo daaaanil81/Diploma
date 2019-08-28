@@ -29,7 +29,7 @@ const hdConstraints = {
 }
 
 var room = 'VideoRoom';
-var socket = io.connect('https://10.168.75.94:7000');
+var socket = io.connect('https://10.168.75.95:7000');
 
 if (room !== '') {
   socket.emit('create or join', room);
@@ -112,14 +112,14 @@ function sendIceCandidate(event){
 
 function sLocalDescription(description){
   localConnection.setLocalDescription(description);
-  console.log("Offer description: \n" + description);
+  console.log("Offer description: \n" + description.sdp);
   localDescription = description;
   var mes = { type: "offer", description: description };
   socket.emit('message', mes);
 }
 function sRemoteDescription(description){
   localConnection.setLocalDescription(description);
-  console.log("Answer description: \n" + description);
+  console.log("Answer description: \n" + description.sdp);
   localDescription = description;
   var mes = { type: "answer", description: description };
   socket.emit('message', mes);

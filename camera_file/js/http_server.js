@@ -19,7 +19,11 @@ const mimeType = {
     '.eot': 'appliaction/vnd.ms-fontobject',
     '.ttf': 'aplication/font-sfnt'
 };
-const app = require('http').createServer(handler);
+var options = {
+    key: fs.readFileSync('certificate/test_cer.key'),
+    cert: fs.readFileSync('certificate/test_cer.crt')
+};
+const app = require('https').createServer(options, handler);
 app.listen(port, host, function () {
     console.log('Server listening to ', host, ':', port);
 });
