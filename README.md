@@ -10,6 +10,6 @@ In camera_file directory:
   1. cd /usr/local/include/
   2. ln -s ../opt/openssl/include/openssl .
   3. export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/opt/openssl/lib/
-#For create certificate:
+# For create certificate:
   openssl req -new -newkey rsa:4096 -days 36500 -nodes -x509 -keyout "localhost-100y.key" -out "localhost-100y.cert"
  
