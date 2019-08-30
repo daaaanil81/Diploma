@@ -61,11 +61,58 @@ int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, cha
         printf("%s\n", answer);
     return 0;
 }
-int sdpParse(char* des, char* offer)
+int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port_camera, char* session)
+{
+    char setup[REQUEST];
+    char answer[SETUP_BUFFER_SIZE];
+    char* t1;
+    char* t2;
+    sprintf(setup, "%s%s%s%d-%d\r\n\r\n", setup_camera_first, host, setup_camera_second, port_camera, port_camera + 1);
+    printf("%s\n", setup);
+    if(write(camerafd, setup, strlen(setup)) < 0)
+    {
+        return 1;
+    }
+    if(read(camerafd, answer, sizeof(answer)) < 0)
+    {
+        return 1;
+    }
+    printf("%s\n", answer);
+    printf("setup_to_camera\n\n\n");
+    t1 = strstr(answer, "Session");
+    t1 += 9;
+    t2 = strstr(t1, ";");
+    strncpy(session, t1, t2 - t1);
+    if(DEBUG)
+        printf("%s\n", answer);
+    return 0;
+}
+int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session)
+{
+    char play[REQUEST];
+    char answer[PLAY_BUFFER_SIZE];
+    char* t1;
+    char* t2;
+    sprintf(play, "%s%s%s%s%s", play_camera_first, host, play_camera_second, session, play_camera_thirt);
+    if(write(camerafd, play, strlen(play)) < 0)
+    {
+        return 1;
+    }
+    if(read(camerafd, answer, sizeof(answer)) < 0)
+    {
+        return 1;
+    }
+    if(DEBUG)
+        printf("%s\n", answer);
+    return 0;
+}
+
+int sdpParse(char* des, char* flag,char* offer)
 {
     char version[] = "v=0\r\no=Daniil_SDP_PARTA ";
     char sdp_f[] = " 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\nm=video 0 RTP/AVP 96\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\n";
-    char sdp_e[] = "\r\na=ice-pwd:7c10144cbaaeed7af228a76356db9d29\r\na=ice-ufrag:21c167f4\r\na=rtpmap:96 H264/90000\r\n";
+    char sdp_e[] = "\r\na=ice-ufrag:XJ0D\r\na=ice-pwd:curBadEHKRtc/CDXsoCKMaKM\r\na=rtpmap:96 H264/90000\r\n";
+    strncpy(flag,"XJ0D",sizeof("XJ0D"));
     char fmtp[60] = {0};
     char sess_version[20] = {0};
     char* t;
@@ -91,4 +138,20 @@ int sdpParse(char* des, char* offer)
     if(DEBUG)
         printf("%s\n", offer);
     return 0;
+}
+void create_ice(char* ice_server, unsigned int port_ice)
+{
+    printf("Ice create\n\n");
+    char hostname[50];
+    char *IPbuffer;
+    struct hostent *host_entry;
+    gethostname(hostname, sizeof(hostname));
+    printf("%s\n", hostname);
+    host_entry = gethostbyname(hostname);
+    IPbuffer = inet_ntoa(*((struct in_addr*)
+                           host_entry->h_addr_list[0]));
+    printf("%s\n", IPbuffer);
+    sprintf(ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, port_ice, ice_candidate_second);
+    if(DEBUG)
+        printf("%s\n", ice_server);
 }
