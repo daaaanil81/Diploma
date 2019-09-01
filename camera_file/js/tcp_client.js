@@ -8,6 +8,10 @@ var remoteStream;
 var sizeIce = 0;
 var flagSDP = true;
 
+var options = {
+    offerToReceiveAudio: false,
+    offerToReceiveVideo: true
+};
 //#####################################################################################################################
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
@@ -31,8 +35,9 @@ connection.onmessage = function (event) {
         console.log(event.data);
         localConnection.onicecandidate = sendIceCandidate; //ice candidate
         localConnection.onaddstream = setRemoteStream;
-
+        localConnection.createOffer(sLocalDescription, onError, options);
     }
+
     if (event.data === 'Busy') {
         console.log("Busy");
         //setTimeout(sendConnect, 3000);
@@ -42,7 +47,7 @@ connection.onmessage = function (event) {
         console.log("SDP");
         mes = event.data.substr(3, event.data.length - 3);
         console.log(mes);
-        var description = {type: "offer", sdp: mes};
+        var description = {type: "answer", sdp: mes};
         localConnection.setRemoteDescription(new RTCSessionDescription(description)).catch(onError_Valid_Description);
         remoteDescription = description;
     }
@@ -59,45 +64,28 @@ connection.onmessage = function (event) {
         console.log(event.data);
     }
 };
-function answer()
-{
-    localConnection.createAnswer(sRemoteDescription, onError);
-}
-
-function sucIce()
-{
-    console.log("Successful in candidate other user");
-}
-function errorIce()
-{
-    console.log("Error in candidate other user");
-}
-function sendConnect()
-{
-    console.log("Send");
-    connection.send("Connect");
-}
 function sendIceCandidate(event) {
-    console.log("send ICE");
     if (event.candidate && sizeIce <= 0) {
         localIce = event.candidate;
         console.log("Send local ice candidate");
         connection.send('ICE' + localIce.candidate);
         sizeIce++;
     }
-    if (flagSDP) {
-        console.log("Send answer");
-        answer();
-        //setTimeout(answer,10000);
-    }
 }
 
-function sRemoteDescription(description) {
+function sLocalDescription(description){
+    localConnection.setLocalDescription(description);
+    console.log("Offer description: \n" + description.sdp);
+    localDescription = description;
+    connection.send('SDP' + description.sdp);
+}
+
+/*function sRemoteDescription(description) {
     localConnection.setLocalDescription(description);
     console.log("Answer description: \n" + description.sdp);
     localDescription = description;
     connection.send('SDP' + description.sdp);
-}
+}*/
 
 function onError() {
     console.log("Error with description");
@@ -112,4 +100,17 @@ function setRemoteStream(event){
     console.log("Set remote stream");
     remoteStream = event.stream;
     remoteVideo.srcObject = event.stream;
+}
+function sucIce()
+{
+    console.log("Successful in candidate other user");
+}
+function errorIce()
+{
+    console.log("Error in candidate other user");
+}
+function sendConnect()
+{
+    console.log("Send");
+    connection.send("Connect");
 }

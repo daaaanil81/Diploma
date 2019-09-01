@@ -32,9 +32,11 @@ int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
 int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port, char* session);
 int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session);
-void create_ice(char* ice_server, unsigned int port_ice);
-static char type_sdp[] = "SDP";
-static char type_ice[] = "ICE";
+void create_ice(char* ice_server, unsigned int port_ice,char* ip_user);
+int sdpParse(char* des, char* flag, char* answer,char*ice);
+void iceParse(char* ice, char* ip, char* ip_user, unsigned int& port);
+void* udp_stream(void* arg);
+void generationSTUN(char* ip, unsigned int port);
 struct argumenst_for_camera
 {
     unsigned int port_ice;
@@ -56,10 +58,16 @@ static char play_camera_second[] = "/axis-media/media.amp "
 "WebRTC_Dan\r\nSession: ";
 static char play_camera_thirt[] = "\r\nRange: npt=0.000-\r\n\r\n";
 static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
-static char ice_candidate_second[] = " typ host generation 0 ufrag XJ0D network-id 1 network-cost 10";
-//10.168.75.95 50532 typ host"
+static char ice_candidate_second[] = " typ host generation 0 ufrag SHgX network-cost 999";
+
+static char type_sdp[] = "SDP";
+static char type_ice[] = "ICE";
+
 static unsigned int port_ice_start = 53532;
 static unsigned int port_camera_start = 43700;
 
-int sdpParse(char* des, char* flag,char* offer);
+static bool busy = false;
+static bool other_user = false;
+static bool ice_step = false;
+static bool sdp_step = false;
 #endif

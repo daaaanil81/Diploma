@@ -77,8 +77,6 @@ int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsign
     {
         return 1;
     }
-    printf("%s\n", answer);
-    printf("setup_to_camera\n\n\n");
     t1 = strstr(answer, "Session");
     t1 += 9;
     t2 = strstr(t1, ";");
@@ -107,12 +105,23 @@ int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* s
     return 0;
 }
 
-int sdpParse(char* des, char* flag,char* offer)
+int sdpParse(char* des, char* flag,char* answer, char*ice)
 {
-    char version[] = "v=0\r\no=Daniil_SDP_PARTA ";
-    char sdp_f[] = " 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\nm=video 0 RTP/AVP 96\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\n";
-    char sdp_e[] = "\r\na=ice-ufrag:XJ0D\r\na=ice-pwd:curBadEHKRtc/CDXsoCKMaKM\r\na=rtpmap:96 H264/90000\r\n";
-    strncpy(flag,"XJ0D",sizeof("XJ0D"));
+    char version[] = "v=0\r\n"
+    "o=- ";
+    char sdp_f[] = " 0 IN IP4 0.0.0.0\r\n"
+    "s=-\r\n"
+    "t=0 0\r\n"
+    "m=video 0 RTP/AVP 96\r\n"
+    "c=IN IP4 0.0.0.0\r\n"
+    "a=ice-ufrag:SHgX\r\n"
+    "a=ice-pwd:1jc/kddiG6awMA9A2Y/d2Mwq\r\n"
+    "a=ice-options:trickle\r\n"
+    "a=sendonly\r\n"
+    "a=rtpmap:96 H264/90000\r\n"
+    "a=fmtp:96 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n";
+    
+    strncpy(flag,"SHgX",sizeof("SHgX"));
     char fmtp[60] = {0};
     char sess_version[20] = {0};
     char* t;
@@ -134,14 +143,13 @@ int sdpParse(char* des, char* flag,char* offer)
      */
     time = strstr(des, "sprop-parameter-sets");
     strncat(fmtp, t, time - t - 2);
-    sprintf(offer, "%s%s%s%s%s", version, sess_version, sdp_f, fmtp, sdp_e);
+    sprintf(answer, "%s%s%s", version, sess_version, sdp_f);
     if(DEBUG)
-        printf("%s\n", offer);
+        printf("%s\n", answer);
     return 0;
 }
-void create_ice(char* ice_server, unsigned int port_ice)
+void create_ice(char* ice_server, unsigned int port_ice,char* ip_user)
 {
-    printf("Ice create\n\n");
     char hostname[50];
     char *IPbuffer;
     struct hostent *host_entry;
@@ -151,7 +159,50 @@ void create_ice(char* ice_server, unsigned int port_ice)
     IPbuffer = inet_ntoa(*((struct in_addr*)
                            host_entry->h_addr_list[0]));
     printf("%s\n", IPbuffer);
+    memset((char*)ip_user, 0, sizeof(ip_user));
+    strcpy((char*)ip_user, IPbuffer);
     sprintf(ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, port_ice, ice_candidate_second);
     if(DEBUG)
         printf("%s\n", ice_server);
+}
+void iceParse(char* ice, char* ip, char* ip_user, unsigned int& port)
+{
+    char* t1 = NULL;
+    char* t2;
+    char time_port[7] = {0};
+    t1 = strstr(ice, "local");
+    int i = 0;
+    while(i < 4)
+    {
+        t1 = strstr(ice, " ");
+        t1 += t1 - ice;
+        i++;
+    }
+    t2 = strstr(t1, "local");
+    if(t2 != NULL)
+    {
+        strcpy(ip, ip_user);
+        t2 = strstr(t1, " ");
+    }
+    else
+    {
+        t2 = strstr(t1, " ");
+        strncpy(ip, t1, t2 - t1);
+        ip[t2 - t1] = '\0';
+    }
+    t1 += t2 - t1 + 1;
+    t2 = strstr(t1, " ");
+    strncpy(time_port, t1, t2 - t1);
+    port = atoi(time_port);
+}
+void generationSTUN(char* ip, unsigned int port, struct struct sockaddr_in& stun_addr, int& sockfd)
+{
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); // UDP
+    
+    bzero(&stun_addr, sizeof(stun_addr));
+    stun_addr.sin_family = AF_INET;
+    stun_addr.sin_port = htons(port);
+    inet_pton(AF_INET, ip, &stun_addr.sin_addr);
+    n = bind(sockfd,(struct sockaddr *)&stun_addr,sizeof(stun_addr));
+    
 }

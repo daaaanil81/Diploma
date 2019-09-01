@@ -1,7 +1,7 @@
 'use strict';
 var localVideo = document.getElementById("localVideo");
 var remoteVideo = document.getElementById("remoteVideo");
-
+const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 var t = 1;
 var localStream;
 var remoteStream;
@@ -69,9 +69,17 @@ socket.on('message', function(message){
       localConnection.createAnswer(sRemoteDescription,onError);
   }
   if (message.type == "answer") {
+	  if(status == "Client")
+	  {
+		  console.log("Answer client bad!");
+	  }
+	  else
+	  {
+
     console.log("Answer other user \n" + message.description);
     localConnection.setRemoteDescription(new RTCSessionDescription(message.description));
-  }
+  	}
+ }
 });
 
 socket.on('ready',function(room){
@@ -87,7 +95,7 @@ function localStreamError(error) {
 }
 //##############################################################################
 function start() {
-  localConnection = new RTCPeerConnection(server);
+  localConnection = new RTCPeerConnection(configuration);
   localConnection.onicecandidate = sendIceCandidate; //ice candidates
   if (status == "Camera") {
     console.log("StartClient");
