@@ -114,14 +114,14 @@ int sdpParse(char* des, char* flag,char* answer, char*ice)
     "t=0 0\r\n"
     "m=video 0 RTP/AVP 96\r\n"
     "c=IN IP4 0.0.0.0\r\n"
-    "a=ice-ufrag:SHgX\r\n"
-    "a=ice-pwd:1jc/kddiG6awMA9A2Y/d2Mwq\r\n"
+    "a=ice-ufrag:sEMT\r\n"
+    "a=ice-pwd:hvOt0NM+iKHs4rFN41uK2h/h\r\n"
     "a=ice-options:trickle\r\n"
     "a=sendonly\r\n"
     "a=rtpmap:96 H264/90000\r\n"
     "a=fmtp:96 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n";
     
-    strncpy(flag,"SHgX",sizeof("SHgX"));
+    strncpy(flag,"sEMT",sizeof("sEMT"));
     char fmtp[60] = {0};
     char sess_version[20] = {0};
     char* t;
@@ -148,7 +148,7 @@ int sdpParse(char* des, char* flag,char* answer, char*ice)
         printf("%s\n", answer);
     return 0;
 }
-void create_ice(char* ice_server, unsigned int port_ice,char* ip_user)
+void create_ice(char* ice_server, unsigned int port_ice,char* ip_server)
 {
     char hostname[50];
     char *IPbuffer;
@@ -159,50 +159,141 @@ void create_ice(char* ice_server, unsigned int port_ice,char* ip_user)
     IPbuffer = inet_ntoa(*((struct in_addr*)
                            host_entry->h_addr_list[0]));
     printf("%s\n", IPbuffer);
-    memset((char*)ip_user, 0, sizeof(ip_user));
-    strcpy((char*)ip_user, IPbuffer);
+    memset((char*)ip_server, 0, sizeof(ip_server));
+    strcpy((char*)ip_server, IPbuffer);
     sprintf(ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, port_ice, ice_candidate_second);
     if(DEBUG)
         printf("%s\n", ice_server);
 }
-void iceParse(char* ice, char* ip, char* ip_user, unsigned int& port)
+void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, char* uflag_browser)
 {
     char* t1 = NULL;
     char* t2;
     char time_port[7] = {0};
-    t1 = strstr(ice, "local");
     int i = 0;
-    while(i < 4)
+    t1 = strstr(ice, " ");
+    t1 += 1;
+    while(i < 3)
     {
-        t1 = strstr(ice, " ");
-        t1 += t1 - ice;
+        t1 = strstr(t1, " ");
+        t1 += 1;
         i++;
     }
-    t2 = strstr(t1, "local");
+    t2 = strstr(ice, "local");
     if(t2 != NULL)
     {
-        strcpy(ip, ip_user);
+        strcpy(ip_browser, ip_server);
         t2 = strstr(t1, " ");
     }
     else
     {
         t2 = strstr(t1, " ");
-        strncpy(ip, t1, t2 - t1);
-        ip[t2 - t1] = '\0';
+        strncpy(ip_browser, t1, t2 - t1);
+        ip_browser[t2 - t1] = '\0';
     }
     t1 += t2 - t1 + 1;
     t2 = strstr(t1, " ");
     strncpy(time_port, t1, t2 - t1);
     port = atoi(time_port);
+    t1 = strstr(ice, "ufrag");
+    t1 += 6;
+    t2 = strstr(t1, " ");
+    strncpy(uflag_browser, t1, t2 - t1);
+    uflag_browser[t2 - t1] = '\0';
 }
-void generationSTUN(char* ip, unsigned int port, struct struct sockaddr_in& stun_addr, int& sockfd)
+int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name)
 {
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0); // UDP
-    
+    int n = 0;
+    int rndfd;
+    int sockfd;
+    unsigned int next_step = 0;
+    unsigned int size_all_stun = 0;
+    struct sockaddr_in stun_addr;
+    struct sockaddr_in stun_browser_addr;
+    struct stun_message sm = {htons(1), 0, htonl(0x2112A442)};
+    // Enter Id for header
+    rndfd=open("/dev/urandom", 0);
+    read(rndfd, (char*)sm.id, sizeof sm.id);
+    close(rndfd);
+    // Socket server
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
     bzero(&stun_addr, sizeof(stun_addr));
     stun_addr.sin_family = AF_INET;
-    stun_addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip, &stun_addr.sin_addr);
-    n = bind(sockfd,(struct sockaddr *)&stun_addr,sizeof(stun_addr));
-    
+    stun_addr.sin_port = htons(ice_port_server);
+    n = bind(sockfd,(struct sockaddr *)&stun_addr,sizeof(stun_addr)); /// Was Opened port for stun request
+    if(n != 0)
+    {
+        printf("Error with bind in Stun\n");
+        return 1;
+    }
+    printf("Bind OK\n");
+    // Socket for send message
+    bzero(&stun_browser_addr, sizeof(stun_browser_addr));
+    stun_browser_addr.sin_family = AF_INET;
+    stun_browser_addr.sin_port = htons(ice_port_browser);
+    inet_pton(AF_INET, ip_browser, &stun_browser_addr.sin_addr);
+    // USERNAME
+    sm.data[next_step] = USERNAME >> 8;
+    next_step+=1;
+    sm.data[next_step] = USERNAME;
+    next_step+=1;
+    sm.data[next_step] = strlen(name) >> 8;
+    next_step+=1;
+    sm.data[next_step] = strlen(name);
+    next_step+=1;
+    strcat((char*)(sm.data + next_step), name);
+    next_step += strlen(name);
+    sm.data[next_step] = 0x0;
+    next_step+=1;
+    sm.data[next_step] = 0x0;
+    next_step+=1;
+    sm.data[next_step] = 0x0;
+    next_step+=1;
+    size_all_stun = STUN_HEADER_ATTR + strlen(name);
+    printf("SIZE PACKET: %d\n", STUN_HEADER_ATTR + strlen(name));
+    // ICE-CONTROLLING
+    sm.data[next_step] = ICE_CONTROLLING >> 8;
+    next_step+=1;
+    sm.data[next_step] = ICE_CONTROLLING;
+    next_step+=1;
+    sm.data[next_step] = ICE_CONTROLLING_LENGTH >> 8;
+    next_step+=1;
+    sm.data[next_step] = ICE_CONTROLLING_LENGTH;
+    next_step+=1;
+    rndfd=open("/dev/urandom", 0);
+    read(rndfd, (char*)(sm.data+next_step), ICE_CONTROLLING_LENGTH);
+    close(rndfd);
+    next_step+=ICE_CONTROLLING_LENGTH;
+    size_all_stun += (int)(STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH);
+    printf("SIZE PACKET: %d\n", (int)(STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH));
+    // PRIORITY
+    sm.data[next_step] = PRIORITY >> 8;
+    next_step+=1;
+    sm.data[next_step] = PRIORITY;
+    next_step+=1;
+    sm.data[next_step] = PRIORITY_LENGTH >> 8;
+    next_step+=1;
+    sm.data[next_step] = PRIORITY_LENGTH;
+    next_step+=1;
+    sm.data[next_step] = PROPRITY_VALUE >> 24;
+    next_step+=1;
+    sm.data[next_step] = PROPRITY_VALUE >> 16;
+    next_step+=1;
+    sm.data[next_step] = PROPRITY_VALUE >> 8;
+    next_step+=1;
+    sm.data[next_step] = PROPRITY_VALUE;
+    next_step+=1;
+    size_all_stun += STUN_HEADER_ATTR + PRIORITY_LENGTH;
+    printf("SIZE PACKET: %d\n", STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH);
+    // SEND
+    sm.data_len = htons(size_all_stun);
+    n = sendto(sockfd, &sm, (STUN_HEADER + size_all_stun), 0, (struct sockaddr*)&stun_browser_addr, sizeof(stun_browser_addr));
+    if(n < STUN_HEADER + size_all_stun)
+    {
+        printf("Error with sendto\n");
+        printf("Sendto n = %d\n", n);
+        return 1;
+    }
+    printf("Sendto n = %d\nsizeof() = %d\n", n, sizeof(sm));
+    return 0;
 }

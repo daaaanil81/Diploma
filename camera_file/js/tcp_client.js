@@ -1,4 +1,5 @@
 const remoteVideo = document.getElementById("remoteVideo");
+//const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 const localConnection = new RTCPeerConnection(null);
 var localDescription;
 var remoteDescription;
@@ -16,7 +17,7 @@ var options = {
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 //#####################################################################################################################
-const connection = new WebSocket('wss://10.168.75.95:8666', 'lws-minimal'); // tcp server on c/c++
+const connection = new WebSocket('wss://10.168.75.94:8666', 'lws-minimal'); // tcp server on c/c++
 connection.onopen = function () {
     console.log("Send");
     //
@@ -65,7 +66,13 @@ connection.onmessage = function (event) {
     }
 };
 function sendIceCandidate(event) {
-    if (event.candidate && sizeIce <= 0) {
+    var test;
+    if(event.candidate)
+    {
+        test = event.candidate.candidate.indexOf("local");
+        console.log("Test: " + event.candidate.candidate);
+    }
+    if (event.candidate && sizeIce <= 0 && test === -1) {
         localIce = event.candidate;
         console.log("Send local ice candidate");
         connection.send('ICE' + localIce.candidate);

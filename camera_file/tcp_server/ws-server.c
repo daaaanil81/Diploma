@@ -4,33 +4,40 @@ static int index_arr;
 unsigned char buf[4100] = {0};
 struct pthread_arguments
 {
-    struct sockaddr_in sddr; /** Struct for create tcp socket for requests camera */
-    char ip_camera[20]; /** Ip address camera's */
-    int camerafd; /** Identificator for request on request */
-    char sdp_offer[4100]; /** Container for sdp from browser */
-    char sdp_camera[1024]; /** Container for sdp from camera */
-    char sdp_answer[1024]; /** Container for sdp from server */
-    unsigned int port_ice; /** Port in ice candidate on server */
-    unsigned int port_camera; /** Port for receive stream from camera */
-    char ice_browser[300]; /** Ice candidate from browser */
-    char ice_server[300]; /** ICe candidate from server */
-    char session[20]; /** Number session in setup from camera */
-    char uflag_server[10]; /** Ice-ufrag in sdp from server */
-    char ip_user[20]; /** Host computer with server */
-    struct sockaddr_in stun_addr;
-    int stun_socketfd;
-    pthread_t tchild; /** Identificator thread */
+    struct sockaddr_in sddr; /// Struct for create tcp socket for requests camera
+    char ip_camera[20]; /// Ip address camera's
+    int camerafd; /// Identificator for request on request
+    char sdp_offer[4100]; /// Container for sdp from browser
+    char sdp_camera[1024]; /// Container for sdp from camera
+    char sdp_answer[1024]; /// Container for sdp from server
+    unsigned int port_ice; /// Port in ice candidate on server
+    unsigned int port_camera; /// Port for receive stream from camera
+    char ice_browser[300]; /// Ice candidate from browser
+    char ice_server[300]; /// ICe candidate from server
+    char session[20]; /// Number session in setup from camera
+    char uflag_server[10]; /// Ice-ufrag in sdp from server
+    char uflag_browser[10]; /// Ice-ufrag in sdp from browser
+    char ip_server[20]; /// Host computer with server
+    char ip_browser[20]; ///Host browser
+    pthread_t tchild; /// Identificator thread
 };
-static struct pthread_arguments *arg_phtread = NULL; /** Arguments for settings connection */
+static struct pthread_arguments *arg_phtread = NULL; /// Arguments for settings connection
 void* udp_stream(void* arg)
 {
     printf("Udp stream create.\n");
     struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
-    unsigned int port_ice_browser;
-    char ip_browser[20] = {0};
-    iceParse(p_a->ice_browser, ip_browser, p_a->ip_user, port_ice_browser);
-    printf("Ip Ice: %s\n", ip_browser);
+    unsigned int port_ice_browser; /// Port ice dandidate browser
+    iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, port_ice_browser, p_a->uflag_browser);
+    printf("Ip Ice: %s\n", p_a->ip_browser);
     printf("Port: %d\n", port_ice_browser);
+    unsigned int length_uflag = strlen(p_a->uflag_browser) + strlen(p_a->uflag_server) + 2;
+    char* name = new char[length_uflag];
+    strcpy(name, p_a->uflag_server);
+    strcat(name, ":");
+    strcat(name, p_a->uflag_browser);
+    printf("USERNAME = %s\n", name);
+    generationSTUN(p_a->ip_server, p_a->ip_browser, port_ice_browser, p_a->port_ice, name);
+    free(name);
     return 0;
 }
 static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
@@ -40,7 +47,7 @@ static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void
 static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
     switch (reason) {
-        case LWS_CALLBACK_PROTOCOL_INIT: /** Initial protocols */
+        case LWS_CALLBACK_PROTOCOL_INIT: /// Initial protocols
             index_arr = 0;
             while(index_arr < SIZE_CAMERA)
             {
@@ -50,23 +57,23 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 index_arr++;
             }
             break;
-        case LWS_CALLBACK_ESTABLISHED: /** Connection clients */
+        case LWS_CALLBACK_ESTABLISHED: /// Connection clients
             printf("connection established\n");
             if(!busy)
             {
                 memset(buf, 0, sizeof(buf));
-                arg_phtread = (struct pthread_arguments*)calloc(1, sizeof(pthread_arguments)); /** Create struct for settings */
+                arg_phtread = (struct pthread_arguments*)calloc(1, sizeof(pthread_arguments)); /// Create struct for settings
                 if(arg_phtread == NULL)
                 {
-                    printf("Error with arg_pthread");/** Error if problems with create object struct pthread_arguments */
+                    printf("Error with arg_pthread");/// Error if problems with create object struct pthread_arguments
                     memcpy((char *)buf + LWS_PRE, "Error", strlen("Error"));
-                    lws_write(wsi, &buf[LWS_PRE], strlen("Error"), LWS_WRITE_TEXT); /** Send Error into clients */
+                    lws_write(wsi, &buf[LWS_PRE], strlen("Error"), LWS_WRITE_TEXT); /// Send Error into clients
                 }
                 else
                 {
                     memcpy((char *)buf + LWS_PRE, "Connect", strlen("Connect"));
-                    lws_write(wsi, &buf[LWS_PRE], strlen("Connect"), LWS_WRITE_TEXT); /** Send connect into clients */
-                    busy = true; /** Server will work only one clients on time */
+                    lws_write(wsi, &buf[LWS_PRE], strlen("Connect"), LWS_WRITE_TEXT); /// Send connect into clients
+                    busy = true; /// Server will work only one clients on time
                     printf("Connect\n");
                 }
             }
@@ -74,7 +81,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 memset(buf, 0, sizeof(buf));
                 memcpy((char *)buf + LWS_PRE, "Busy", strlen("Busy"));
-                lws_write(wsi, &buf[LWS_PRE], strlen("Busy"), LWS_WRITE_TEXT); /** Send message about that server have already worked with client */
+                lws_write(wsi, &buf[LWS_PRE], strlen("Busy"), LWS_WRITE_TEXT); /// Send message about that server have already worked with client
             }
         case LWS_CALLBACK_RECEIVE:
             memset(buf, 0, sizeof(buf));
@@ -84,7 +91,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             }
             strncpy((char*)buf, (char*)in, len);
             
-            if(strcmp((char*)buf, "Connect") == 0) /** Repiet request on connection */
+            if(strcmp((char*)buf, "Connect") == 0) /// Repiet request on connection
             {
                 //printf("Connect\n");
                 if(!busy)
@@ -113,14 +120,14 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Busy"), LWS_WRITE_TEXT);
                 }
             }
-             /** Server receive host from camera */
+             /// Server receive host from camera
             if(strncmp((char*)buf, "host", strlen("host")) == 0)
             {
                 strcpy(arg_phtread->ip_camera, (char*)buf + strlen("host"));
                 memset(buf, 0, sizeof(buf));
                 index_arr = 0;
                 other_user = false;
-                while( afc[index_arr].port_ice != 0 && index_arr < SIZE_CAMERA )/** Search stream in list */
+                while( afc[index_arr].port_ice != 0 && index_arr < SIZE_CAMERA ) /// Search stream in list
                 {
                     if(strncmp(afc[index_arr].ip, arg_phtread->ip_camera, strlen(arg_phtread->ip_camera)) == 0)
                     {
@@ -129,7 +136,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     }
                     index_arr++;
                 }
-                if(other_user) /** If stream from camera other user have already used*/
+                if(other_user) /// If stream from camera other user have already used
                 {
                     printf("Camera used other people.\n\n");
                     memcpy((char *)buf + LWS_PRE, "Error: Camera used other people.", strlen("Error: Camera used other people."));
@@ -137,19 +144,19 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     busy = false;
                     break;
                 }
-                if(index_arr == 0)/** If stream first on server */
+                if(index_arr == 0) /// If stream first on server
                 {
                     arg_phtread->port_ice = afc[index_arr].port_ice = port_ice_start;
                     arg_phtread->port_camera = afc[index_arr].port_camera = port_camera_start;
                     strcpy(afc[index_arr].ip, arg_phtread->ip_camera);
                 }
-                else /** If this stream no first on server */
+                else /// If this stream no first on server
                 {
                     arg_phtread->port_ice = afc[index_arr].port_ice = afc[index_arr-1].port_ice+1000;
                     arg_phtread->port_camera = afc[index_arr].port_camera = afc[index_arr-1].port_camera+1000;
                     strcpy(afc[index_arr].ip, arg_phtread->ip_camera);
                 }
-                /** Connection on stream
+                 /** Connection on stream
                  *
                  *
                  *
@@ -163,10 +170,10 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 }
                 else
                 {
-                    memcpy((char *)buf + LWS_PRE, "OK", strlen("OK")); /** Send OK, camera with status "Work" */
+                    memcpy((char *)buf + LWS_PRE, "OK", strlen("OK")); /// Send OK, camera with status "Work"
                     lws_write(wsi, &buf[LWS_PRE], strlen("OK"), LWS_WRITE_TEXT);
                     printf("Next steps\n\n\n");
-                    /** Option into camera
+                     /** Option into camera
                      *
                      *
                      *
@@ -177,7 +184,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                         busy = false;
                         break;
                     }
-                    /** Describe into camera
+                     /** Describe into camera
                      *
                      *
                      *
@@ -189,13 +196,13 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                         break;
                     }
                     strcpy(arg_phtread->sdp_camera, strstr((char*)buf,"v="));
-                    /** Create server's ice candidate for browser
+                     /** Create server's ice candidate for browser
                      *
                      *
                      *
                      */
-                    create_ice(arg_phtread->ice_server, arg_phtread->port_ice, arg_phtread->ip_user);
-                    /** Parsing sdp camera's for create sdp answer for browser
+                    create_ice(arg_phtread->ice_server, arg_phtread->port_ice, arg_phtread->ip_server);
+                     /** Parsing sdp camera's for create sdp answer for browser
                      *
                      *
                      *
@@ -204,12 +211,13 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     memset(buf, 0, sizeof(buf));
                 }
             }
-            if(strncmp((char*)buf, "SDP", strlen("SDP")) == 0)/** Server receive SDP offer from browser and browser wait answer*/
+            if(strncmp((char*)buf, "SDP", strlen("SDP")) == 0)/// Server receive SDP offer from browser and browser wait answer
             {
                 printf("SDP Offer\n");
                 strcpy(arg_phtread->sdp_offer, (char*)buf + strlen("SDP"));
+                
                 printf("Offer: \n\n%s\n", arg_phtread->sdp_offer);
-                /** Setup into camera
+                 /** Setup into camera
                  *
                  *
                  *
@@ -223,14 +231,14 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 
                 memset(buf, 0, sizeof(buf));
                 sprintf((char*)buf + LWS_PRE, "%s%s", type_sdp, arg_phtread->sdp_answer);
-                lws_write(wsi, &buf[LWS_PRE], strlen(arg_phtread->sdp_answer)+strlen(type_sdp), LWS_WRITE_TEXT);/** Send answer into browser */
+                lws_write(wsi, &buf[LWS_PRE], strlen(arg_phtread->sdp_answer)+strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
                 
                 memset(buf, 0, sizeof(buf));
                 sprintf((char*)buf + LWS_PRE, "%s%s", type_ice, arg_phtread->ice_server);
-                lws_write(wsi, &buf[LWS_PRE], strlen(arg_phtread->ice_server)+strlen(type_ice), LWS_WRITE_TEXT);/** Send ice candidate into browser */
-                sdp_step = true;/** Marker, sdp step was finished */
+                lws_write(wsi, &buf[LWS_PRE], strlen(arg_phtread->ice_server)+strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
+                sdp_step = true; /// Marker, sdp step was finished
                 printf("ICE send\n");
-                if(ice_step && sdp_step)/** was finished all step */
+                if(ice_step && sdp_step) /// was finished all step
                 {
                     printf("Create Threads\n");
                     if(pthread_create(&arg_phtread->tchild,0,udp_stream,arg_phtread) < 0)
@@ -244,7 +252,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 strcpy(arg_phtread->ice_browser, (char*)buf + strlen("ICE"));
                 printf("ICE: \n\n%s\n", arg_phtread->ice_browser);
-                ice_step = true;/** Marker, ice step was finished */
+                ice_step = true; /// Marker, ice step was finished
                 if(ice_step && sdp_step)
                 {
                     printf("Create Threads\n");
@@ -256,7 +264,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 }
             }
             break;
-        case LWS_CALLBACK_CLOSED:/** Close server */
+        case LWS_CALLBACK_CLOSED: /// Close server
             printf("Close\n");
             free(arg_phtread);
             break;
@@ -269,7 +277,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
 static struct lws_protocols protocols[] = {
     { "http", callback_http, 0, 0 },
     { "lws-minimal", callback_dumb_increment, 0, 0, 0, NULL, 0 },
-    { NULL, NULL, 0, 0 } /* terminator */
+    { NULL, NULL, 0, 0 } /* terminator*/
 };
 
 void sigint_handler(int sig)
@@ -288,13 +296,13 @@ int main(int argc, const char **argv)
     signal(SIGINT, sigint_handler);
     
     lws_set_log_level(logs, NULL);
-    lwsl_user("WebSocket security: http://10.168.75.95:8666\n");
+    lwsl_user("WebSocket security: http://10.168.75.94:8666\n");
     printf("Enter Ctrl + C for exit.\n");
     memset(&info, 0, sizeof info);
     info.port = 8666;
     info.mounts = NULL;
     info.protocols = protocols;
-    info.vhost_name = "10.168.75.95";
+    info.vhost_name = "10.168.75.94"; // argv[1]
     info.ws_ping_pong_interval = 10;
     info.options = LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
     lwsl_user("Server using TLS\n");

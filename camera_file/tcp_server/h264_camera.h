@@ -16,17 +16,26 @@
 #include <signal.h>
 #include <libwebsockets.h>
 #include <stdbool.h>
+#include <fcntl.h>
 
 #define TCP_PORT 554
 #define DESCRIBE_BUFFER_SIZE 1024
 #define SETUP_BUFFER_SIZE 500
 #define OPTION_BUFFER_SIZE 300
 #define PLAY_BUFFER_SIZE 300
-
+#define STUN_HEADER 20
+#define STUN_HEADER_ATTR 7
 #define SIZE_CAMERA 3
 #define REQUEST 300
 #define DEBUG 1
-
+#define USERNAME 0x0006
+#define ICE_CONTROLLING 0x802A
+#define ICE_CONTROLLING_LENGTH 0x0008
+#define ICE_CONTROLLED 0x8029
+#define USE_CANDIDATE 0x0025
+#define PROPRITY_VALUE 0x6E7F00FF
+#define PRIORITY 0x0024
+#define PRIORITY_LENGTH 0x0004
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
@@ -34,15 +43,24 @@ int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsign
 int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session);
 void create_ice(char* ice_server, unsigned int port_ice,char* ip_user);
 int sdpParse(char* des, char* flag, char* answer,char*ice);
-void iceParse(char* ice, char* ip, char* ip_user, unsigned int& port);
+void iceParse(char* ice, char* ip, char* ip_user, unsigned int& port, char* uflag_browser);
 void* udp_stream(void* arg);
-void generationSTUN(char* ip, unsigned int port);
+int generationSTUN(char* ip_server, char*ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name);
 struct argumenst_for_camera
 {
     unsigned int port_ice;
     unsigned int port_camera;
     char ip[20];
 };
+struct stun_message {
+    uint16_t msg_type;
+    uint16_t data_len;
+    uint32_t magick;
+    uint32_t id[3];
+    unsigned char data[256];
+};
+
+
 static struct argumenst_for_camera afc[SIZE_CAMERA];
 static char option_camera_first[] = "OPTIONS rtsp://";
 static char option_camera_second[] = "/axis-media/media.amp RTSP/1.0\r\nCSeq: " "1\r\nUser-Agent: WebRTC_Dan\r\n\r\n";
