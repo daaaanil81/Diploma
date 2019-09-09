@@ -24,7 +24,7 @@
 #define OPTION_BUFFER_SIZE 300
 #define PLAY_BUFFER_SIZE 300
 #define STUN_HEADER 20
-#define STUN_HEADER_ATTR 7
+#define STUN_HEADER_ATTR 4
 #define SIZE_CAMERA 3
 #define REQUEST 300
 #define DEBUG 1
@@ -32,10 +32,22 @@
 #define ICE_CONTROLLING 0x802A
 #define ICE_CONTROLLING_LENGTH 0x0008
 #define ICE_CONTROLLED 0x8029
-#define USE_CANDIDATE 0x0025
 #define PROPRITY_VALUE 0x6E7F00FF
 #define PRIORITY 0x0024
 #define PRIORITY_LENGTH 0x0004
+#define USE_CANDIDATE 0x0025
+#define USE_CANDIDATE_LENGTH 0x0
+#define USE_CANDIDATE_VALUE 0x0
+#define MESSAGE_INTEGRITY 0x0008
+#define MESSAGE_INTEGRITY_LENGTH 0x0014
+#define MESSAGE_INTEGRITY_VALUE_1 0x83b7f97f
+#define MESSAGE_INTEGRITY_VALUE_2 0x444a6bd5
+#define MESSAGE_INTEGRITY_VALUE_3 0xda374159
+#define MESSAGE_INTEGRITY_VALUE_4 0xade91d0b
+#define MESSAGE_INTEGRITY_VALUE_5 0x795f6a4e
+#define FINGERPRINT 0x8028
+#define FINGERPRINT_LENGTH 0x0004
+
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
@@ -59,7 +71,12 @@ struct stun_message {
     uint32_t id[3];
     unsigned char data[256];
 };
-
+struct stun_request {
+    uint16_t msg_type;
+    uint16_t data_len;
+    uint32_t magick;
+    uint32_t id[3];
+};
 
 static struct argumenst_for_camera afc[SIZE_CAMERA];
 static char option_camera_first[] = "OPTIONS rtsp://";
@@ -76,7 +93,7 @@ static char play_camera_second[] = "/axis-media/media.amp "
 "WebRTC_Dan\r\nSession: ";
 static char play_camera_thirt[] = "\r\nRange: npt=0.000-\r\n\r\n";
 static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
-static char ice_candidate_second[] = " typ host generation 0 ufrag SHgX network-cost 999";
+static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-cost 999";
 
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";

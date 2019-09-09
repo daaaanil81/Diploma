@@ -1,4 +1,5 @@
 #include "h264_camera.h"
+
 static int interrupted;
 static int index_arr;
 unsigned char buf[4100] = {0};
@@ -35,7 +36,6 @@ void* udp_stream(void* arg)
     strcpy(name, p_a->uflag_server);
     strcat(name, ":");
     strcat(name, p_a->uflag_browser);
-    printf("USERNAME = %s\n", name);
     generationSTUN(p_a->ip_server, p_a->ip_browser, port_ice_browser, p_a->port_ice, name);
     free(name);
     return 0;

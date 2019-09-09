@@ -66,13 +66,13 @@ connection.onmessage = function (event) {
     }
 };
 function sendIceCandidate(event) {
-    var test;
-    if(event.candidate)
-    {
-        test = event.candidate.candidate.indexOf("local");
-        console.log("Test: " + event.candidate.candidate);
-    }
-    if (event.candidate && sizeIce <= 0 && test === -1) {
+    // var test;
+    // if(event.candidate)
+    // {
+    //     test = event.candidate.candidate.indexOf("local");
+    //     console.log("Test: " + event.candidate.candidate);
+    // }
+    if (event.candidate && sizeIce <= 0 ) {
         localIce = event.candidate;
         console.log("Send local ice candidate");
         connection.send('ICE' + localIce.candidate);

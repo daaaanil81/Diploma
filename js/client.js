@@ -1,7 +1,7 @@
 'use strict';
 var localVideo = document.getElementById("localVideo");
 var remoteVideo = document.getElementById("remoteVideo");
-const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+//const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 var t = 1;
 var localStream;
 var remoteStream;
@@ -29,7 +29,7 @@ const hdConstraints = {
 }
 
 var room = 'VideoRoom';
-var socket = io.connect('https://10.168.75.95:7000');
+var socket = io.connect('https://10.168.75.94:7000');
 
 if (room !== '') {
   socket.emit('create or join', room);
@@ -95,7 +95,8 @@ function localStreamError(error) {
 }
 //##############################################################################
 function start() {
-  localConnection = new RTCPeerConnection(configuration);
+  //localConnection = new RTCPeerConnection(configuration);
+  localConnection = new RTCPeerConnection(null);
   localConnection.onicecandidate = sendIceCandidate; //ice candidates
   if (status == "Camera") {
     console.log("StartClient");
