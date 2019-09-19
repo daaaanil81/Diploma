@@ -530,9 +530,9 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
     printf("Crc32 result = %x\n", crc);
     //FINGERPRINT
     printf("FINGERPRINT\n");
-    data_req[next_step] = FINGERPRINT >> 8;
+    data_req[next_step] = crc >> 8;
     next_step+=1;
-    data_req[next_step] = FINGERPRINT;
+    data_req[next_step] = crc;
     next_step+=1;
     data_req[next_step] = FINGERPRINT_LENGTH >> 8;
     next_step+=1;
