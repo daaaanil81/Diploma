@@ -1,5 +1,246 @@
 #include "h264_camera.h"
-#include "Crc32.h"
+#include "HMAX_CTX.h"
+void setUSERNAME(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* name)
+{
+    struct iovec* i = &iov[last];
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(USERNAME);
+    attr_tlv->len = htons(strlen(name));
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+    i->iov_len = sizeof(*attr_tlv) + 3 + strlen(name);
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = USERNAME >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = strlen(name) >> (8 * t);
+	    index++;
+	    t--;
+    }
+    strcat((char*)(d_r + index), name);
+    index += strlen(name);
+    t = 0;
+    while(t < 3)
+    {
+	    d_r[index] = 0x0;
+	    index++;
+	    t++; 
+    }
+    last += 1;
+}
+void setICE_CONTROLLING(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index)
+{
+    int rndfd;
+    struct iovec* i = &iov[last];
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(ICE_CONTROLLING);
+    attr_tlv->len = htons(ICE_CONTROLLING_LENGTH);
+
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+
+    i->iov_len = sizeof(*attr_tlv) + ICE_CONTROLLING_LENGTH;
+    //printf("Iov_len: %d\n", i->iov_len);
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = ICE_CONTROLLING >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = ICE_CONTROLLING_LENGTH >> (8 * t);
+	    index++;
+	    t--;
+    }
+    rndfd=open("/dev/urandom", 0);
+    read(rndfd, (unsigned char*)(d_r+index), ICE_CONTROLLING_LENGTH);
+    index += ICE_CONTROLLING_LENGTH;
+    last++;
+    close(rndfd);
+}
+void setPRIORITY(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index)
+{
+    struct iovec* i = &iov[last];
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(PRIORITY);
+    attr_tlv->len = htons(PRIORITY_LENGTH);
+
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+
+    i->iov_len = sizeof(*attr_tlv) + PRIORITY_LENGTH;
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = PRIORITY >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = PRIORITY_LENGTH >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 3;
+    while(t >= 0)
+    {
+	    printf("index = %d\n", index);
+	    d_r[index] = PROPRITY_VALUE >> (8 * t);
+	    index++;
+	    t--;
+    }
+    last++;
+}
+void setUSE_CANDIDATE(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index)
+{
+    struct iovec* i = &iov[last];
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(USE_CANDIDATE);
+    attr_tlv->len = htons(USE_CANDIDATE_LENGTH);
+
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+    i->iov_len = sizeof(*attr_tlv) + USE_CANDIDATE_LENGTH;
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = USE_CANDIDATE >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = 0x0;
+	    index++;
+	    t--;
+    }
+    last++;
+}
+
+
+void integrity(struct message_integrity* mi, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* pwd)
+{
+    struct iovec* i = &iov[last];
+    struct tlv* attr_tlv = &(mi->t);
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(MESSAGE_INTEGRITY);
+    attr_tlv->len = htons(MESSAGE_INTEGRITY_LENGTH);
+
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+
+    i->iov_len = sizeof(*attr_tlv) + MESSAGE_INTEGRITY_LENGTH;
+    memset(mi->digest, 0, sizeof(mi->digest));
+    Integrity(iov, last, pwd, mi->digest);
+    printf("Digest: \n%s\n", mi->digest);
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = MESSAGE_INTEGRITY >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = MESSAGE_INTEGRITY_LENGTH >> (8*t);
+	    index++;
+	    t--;
+    }
+    strcpy((char*)d_r + index, mi->digest);
+    index += MESSAGE_INTEGRITY_LENGTH;
+    last++;
+
+}
+void Fingerprint(struct fingerprint* f, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index)
+{
+    struct iovec* i = &iov[last];
+    struct tlv* attr_tlv = &(f->t);
+    i->iov_base = attr_tlv;
+    attr_tlv->type = htons(FINGERPRINT);
+    attr_tlv->len = htons(FINGERPRINT_LENGTH);
+
+    printf("Type: %x\n", attr_tlv->type);
+    printf("Length: %x\n", attr_tlv->len);
+
+    i->iov_len = sizeof(*attr_tlv) + FINGERPRINT_LENGTH;
+
+    f->crc = crc32(0, NULL, 0);
+    printf("Test1\n");
+    for (int i = 0; i < last; i++)
+	f->crc = crc32(f->crc, (unsigned char*)iov[i].iov_base, iov[i].iov_len);
+    printf("test4\n");
+    f->crc = htonl(f->crc ^ STUN_CRC_XOR);
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = FINGERPRINT >> (8 * t);
+	    index++;
+	    t--;
+    }
+    t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = FINGERPRINT_LENGTH >> (8*t);
+	    index++;
+	    t--;
+    }
+    t = 3;
+    while(t >= 0)
+    {
+	 d_r[index] = f->crc >> (8*t);
+	 index++;
+	 t--;
+    }
+    last++;
+}
+
+
+
+void setHeader(struct header* h, struct iovec* iov, char* d_r, unsigned int& index)
+{
+    int rndfd;
+    struct iovec* i = &(iov[0]);
+    i->iov_base = h;
+    h->msg_type = htons(HEADER_TYPE);
+    h->magick = htonl(MAGICK);
+    i->iov_len = sizeof(*h);
+    //printf("Header Iov_len: %lu\n", i->iov_len);
+    int t = 1;
+    while(t >= 0)
+    {
+	    d_r[index] = HEADER_TYPE >> (8 * t);
+	    index++;
+	    t--;
+    }
+    index += 2; //len
+ 
+    t = 3;
+    while(t >= 0)
+    {
+	    d_r[index] = MAGICK >> (8 * t);
+	    index++;
+	    t--;
+    }
+
+    rndfd=open("/dev/urandom", 0);
+    read(rndfd, (unsigned char*)(d_r+index), 12);
+    memcpy((char* )h->id, d_r+index, 12);
+    index += 12;
+    close(rndfd);
+}
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host)
 {
     camerafd = socket(AF_INET, SOCK_STREAM, 0);
@@ -38,7 +279,7 @@ int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host)
     }
     if(read(camerafd, answer, sizeof(answer)) < 0)
     {
-        return 1;
+       return 1;
     }
     if(DEBUG)
         printf("%s\n", answer);
@@ -106,7 +347,10 @@ int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* s
     return 0;
 }
 
-int sdpParse(char* des, char* flag,char* answer, char*ice)
+//int sdpParse(char* des, char* flag,char* answer, char*ice)
+//sdpParse(p_a->sdp_camera, p_a->uflag_server, p_a->sdp_answer, p_a->ice_server);
+int sdpParse(struct pthread_arguments* p_a)
+
 {
     char version[] = "v=0\r\n"
     "o=- ";
@@ -122,34 +366,38 @@ int sdpParse(char* des, char* flag,char* answer, char*ice)
     "a=rtpmap:96 H264/90000\r\n"
     "a=fmtp:96 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n";
     
-    strncpy(flag,"sEMT",sizeof("sEMT"));
+    strncpy(p_a->uflag_server, "sEMT",sizeof("sEMT"));
+    memset(p_a->pwd_server, 0, sizeof(p_a->pwd_server));
+    strcpy(p_a->pwd_server, "hvOt0NM+iKHs4rFN41uK2h/h");
     char fmtp[60] = {0};
     char sess_version[20] = {0};
     char* t;
     char* time;
     char* payload_type;
     
-    t = strstr(des, "o=");
+    t = strstr(p_a->sdp_camera, "o=");
     t = strstr(t, " ");
     t += 1;
     time = t;
     time = strstr(t, " ");
     strncpy(sess_version, t, time - t);
-    t = strstr(des, "a=fmtp");
+    t = strstr(p_a->sdp_camera, "a=fmtp");
     /*
      payload_type = t + 7;
      strncpy(fmtp, t, payload_type - t);
      strcat(fmtp, "120 ");
      t = strstr(des, "packetization");
      */
-    time = strstr(des, "sprop-parameter-sets");
+    time = strstr(p_a->sdp_camera, "sprop-parameter-sets");
     strncat(fmtp, t, time - t - 2);
-    sprintf(answer, "%s%s%s", version, sess_version, sdp_f);
+    sprintf(p_a->sdp_answer, "%s%s%s", version, sess_version, sdp_f);
     if(DEBUG)
-        printf("%s\n", answer);
+        printf("%s\n", p_a->sdp_answer);
     return 0;
 }
-void create_ice(char* ice_server, unsigned int port_ice,char* ip_server)
+//void create_ice(char* ice_server, unsigned int port_ice, char* ip_server)
+//create_ice(p_a->ice_server, p_a->port_ice, p_a->ip_server);
+void create_ice(struct pthread_arguments* p_a)
 {
     char hostname[50];
     char *IPbuffer;
@@ -160,19 +408,21 @@ void create_ice(char* ice_server, unsigned int port_ice,char* ip_server)
     IPbuffer = inet_ntoa(*((struct in_addr*)
                            host_entry->h_addr_list[0]));
     printf("%s\n", IPbuffer);
-    memset((char*)ip_server, 0, sizeof(ip_server));
-    strcpy((char*)ip_server, IPbuffer);
-    sprintf(ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, port_ice, ice_candidate_second);
+    memset((char*)p_a->ip_server, 0, sizeof(p_a->ip_server));
+    strcpy((char*)p_a->ip_server, IPbuffer);
+    sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, p_a->port_ice, ice_candidate_second);
     if(DEBUG)
-        printf("%s\n", ice_server);
+        printf("%s\n", p_a->ice_server);
 }
-void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, char* uflag_browser)
+//iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, p_a->port_ice_browser, p_a->uflag_browser);
+//void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, char* uflag_browser)
+void iceParse(struct pthread_arguments* p_a, unsigned int& port)
 {
     char* t1 = NULL;
     char* t2;
     char time_port[7] = {0};
     int i = 0;
-    t1 = strstr(ice, " ");
+    t1 = strstr(p_a->ice_browser, " ");
     t1 += 1;
     while(i < 3)
     {
@@ -180,45 +430,58 @@ void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, 
         t1 += 1;
         i++;
     }
-    t2 = strstr(ice, "local");
+    t2 = strstr(p_a->ice_browser, "local");
     if(t2 != NULL)
     {
-        strcpy(ip_browser, ip_server);
+        strcpy(p_a->ip_browser, p_a->ip_server);
         t2 = strstr(t1, " ");
     }
     else
     {
         t2 = strstr(t1, " ");
-        strncpy(ip_browser, t1, t2 - t1);
-        ip_browser[t2 - t1] = '\0';
+        strncpy(p_a->ip_browser, t1, t2 - t1);
+        p_a->ip_browser[t2 - t1] = '\0';
     }
     t1 += t2 - t1 + 1;
     t2 = strstr(t1, " ");
     strncpy(time_port, t1, t2 - t1);
     port = atoi(time_port);
-    t1 = strstr(ice, "ufrag");
+    t1 = strstr(p_a->ice_browser, "ufrag");
     t1 += 6;
     t2 = strstr(t1, " ");
-    strncpy(uflag_browser, t1, t2 - t1);
-    uflag_browser[t2 - t1] = '\0';
+    strncpy(p_a->uflag_browser, t1, t2 - t1);
+    p_a->uflag_browser[t2 - t1] = '\0';
+}
+void pwdParse(struct pthread_arguments* p_a)
+{
+    //char _browser[20]; ///PWD from browser in sdp description
+    //char _server[30]; ///PWD from server
+
+    char* t1 = NULL;
+    char* t2;
+    int i = 0;
+    memset(p_a->pwd_browser, 0, sizeof(p_a->pwd_browser));
+    t1 = strstr(p_a->sdp_offer, "a=ice-pwd:");
+    t1 += 10;
+
+    t2 = strstr(t1, "\r\n");
+    strncpy(p_a->pwd_browser, t1, t2-t1);
+    printf("PWD: \n%s\n", p_a->pwd_browser);
+
 }
 //int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name)
 //{
 //    int n = 0;
 //    int rndfd;
 //    int sockfd;
+//    unsigned int last_iov = 0;
 //    unsigned int next_step = 0;
 //    unsigned int size_all_stun = 0;
 //    struct sockaddr_in stun_addr;
 //    struct sockaddr_in stun_browser_addr;
-//    struct stun_message sm = {htons(1), 0, htonl(0x2112A442)};
-//    struct stun_request sr = {htons(1), 0, htonl(0x2112A442)};
+//    unsigned char data_req[276];
 //
-//    // Enter Id for header
-//    rndfd=open("/dev/urandom", 0);
-//    read(rndfd, (char*)sm.id, sizeof sm.id);
-//    read(rndfd, (char*)sr.id, sizeof sr.id);
-//    close(rndfd);
+//    struct iovecs iov[10] = {0};
 //    // Socket server
 //    sockfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
 //    bzero(&stun_addr, sizeof(stun_addr));
@@ -236,125 +499,181 @@ void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, 
 //    stun_browser_addr.sin_family = AF_INET;
 //    stun_browser_addr.sin_port = htons(ice_port_browser);
 //    inet_pton(AF_INET, ip_browser, &stun_browser_addr.sin_addr);
-//    printf("Stun request\n");
-//    n = sendto(sockfd, &sr, 20, 0, (struct sockaddr*)&stun_browser_addr, sizeof(stun_browser_addr));
+//    //
+//
+//    data_req[next_step] = iov[hs].tlv[0] = 0x00;
+//    next_step+=1;
+//    data_req[next_step] = iov[hs].tlv[1] = 0x01;
+//    next_step+=1;
+//    // first byte for length
+//    next_step+=1;
+//    // second byte for length
+//    next_step+=1;
+//    data_req[next_step] = iov[hs].tlv[4] = 0x2112A442 >> 24;
+//    next_step+=1;
+//    data_req[next_step] = iov[hs].tlv[5] = 0x2112A442 >> 16;
+//    next_step+=1;
+//    data_req[next_step] = iov[hs].tlv[6] = 0x2112A442 >> 8;
+//    next_step+=1;
+//    data_req[next_step] = iov[hs].tlv[7] = 0x2112A442;
+//    next_step+=1;
+//    // Enter Id for header
+//    rndfd=open("/dev/urandom", 0);
+//    read(rndfd, (unsigned char*)(data_req+next_step), 12);
+//    read(rndfd, (unsigned char*)(iov[hs].tlv + next_step]), 12);
+//    close(rndfd);
+//    next_step += 12;
+//    iov[hs].len = 20;
+//    hs += 1;
 //    // USERNAME
 //    printf("USERNAME\n");
-//    sm.data[next_step] = USERNAME >> 8;
+//    data_req[next_step] = iov[hs].tlv[0] = USERNAME >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = USERNAME;
+//    data_req[next_step] = iov[hs].tlv[1] = USERNAME;
 //    next_step+=1;
-//    sm.data[next_step] = strlen(name) >> 8;
+//    data_req[next_step] = iov[hs].tlv[2] = strlen(name) >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = strlen(name);
+//    data_req[next_step] = iov[hs].tlv[3] = strlen(name);
 //    next_step+=1;
-//    strcat((char*)(sm.data + next_step), name);
+//    strcat((char*)(data_req + next_step), name);
 //    next_step += strlen(name);
 //    printf("Value = %s\n", name);
-//    sm.data[next_step] = 0x0;
+//    data_req[next_step] = 0x0;
 //    next_step+=1;
-//    sm.data[next_step] = 0x0;
+//    data_req[next_step] = 0x0;
 //    next_step+=1;
-//    sm.data[next_step] = 0x0;
+//    data_req[next_step] = 0x0;
 //    next_step+=1;
 //    size_all_stun = STUN_HEADER_ATTR + 3 + strlen(name);
+//    iov[hs].len = STUN_HEADER_ATTR + 3 + strlen(name);
+//    hs += 1;
 //    // ICE-CONTROLLING
 //    printf("ICE-CONTROLLING\n");
-//    sm.data[next_step] = ICE_CONTROLLING >> 8;
+//    data_req[next_step] = iov[hs].tlv[0] = ICE_CONTROLLING >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = ICE_CONTROLLING;
+//    data_req[next_step] = iov[hs].tlv[1] = ICE_CONTROLLING;
 //    next_step+=1;
-//    sm.data[next_step] = ICE_CONTROLLING_LENGTH >> 8;
+//    data_req[next_step] = iov[hs].tlv[2] = ICE_CONTROLLING_LENGTH >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = ICE_CONTROLLING_LENGTH;
+//    data_req[next_step] = iov[hs].tlv[3] = ICE_CONTROLLING_LENGTH;
 //    next_step+=1;
 //    rndfd=open("/dev/urandom", 0);
-//    read(rndfd, (char*)(sm.data+next_step), ICE_CONTROLLING_LENGTH);
+//    read(rndfd, (unsigned char*)(data_req+next_step), ICE_CONTROLLING_LENGTH);
 //    close(rndfd);
 //    next_step+=ICE_CONTROLLING_LENGTH;
 //    size_all_stun += (STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH);
+//    iov[hs].len = STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH;
+//    hs += 1;
 //    // PRIORITY
 //    printf("PRIORITY\n");
-//    sm.data[next_step] = PRIORITY >> 8;
+//    data_req[next_step] = PRIORITY >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = PRIORITY;
+//    data_req[next_step] = PRIORITY;
 //    next_step+=1;
-//    sm.data[next_step] = PRIORITY_LENGTH >> 8;
+//    data_req[next_step] = PRIORITY_LENGTH >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = PRIORITY_LENGTH;
+//    data_req[next_step] = PRIORITY_LENGTH;
 //    next_step+=1;
-//    sm.data[next_step] = PROPRITY_VALUE >> 24;
+//    data_req[next_step] = PROPRITY_VALUE >> 24;
 //    next_step+=1;
-//    sm.data[next_step] = PROPRITY_VALUE >> 16;
+//    data_req[next_step] = PROPRITY_VALUE >> 16;
 //    next_step+=1;
-//    sm.data[next_step] = PROPRITY_VALUE >> 8;
+//    data_req[next_step] = PROPRITY_VALUE >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = PROPRITY_VALUE;
+//    data_req[next_step] = PROPRITY_VALUE;
 //    next_step+=1;
 //    size_all_stun += STUN_HEADER_ATTR + PRIORITY_LENGTH;
 //    printf("Value = %d\n", PROPRITY_VALUE);
 //    // USE_CANDIDATE
 //    printf("USE-CANDIDATE\n");
-//    sm.data[next_step] = USE_CANDIDATE >> 8;
+//    data_req[next_step] = USE_CANDIDATE >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = USE_CANDIDATE;
+//    data_req[next_step] = USE_CANDIDATE;
 //    next_step+=1;
-//    sm.data[next_step] = USE_CANDIDATE_LENGTH >> 8;
+//    data_req[next_step] = USE_CANDIDATE_LENGTH >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = USE_CANDIDATE_LENGTH;
+//    data_req[next_step] = USE_CANDIDATE_LENGTH;
 //    next_step+=1;
 //    size_all_stun += STUN_HEADER_ATTR + USE_CANDIDATE_LENGTH;
 //    // MESSAGE-INTEGRITY
 //    printf("MESSAGE-INTEGRITY\n");
-//    sm.data[next_step] = MESSAGE_INTEGRITY >> 8;
+//    /*
+//    data_req[next_step] = MESSAGE_INTEGRITY >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = MESSAGE_INTEGRITY;
+//    data_req[next_step] = MESSAGE_INTEGRITY;
 //    next_step+=1;
-//    sm.data[next_step] = MESSAGE_INTEGRITY_LENGTH >> 8;
+//    data_req[next_step] = MESSAGE_INTEGRITY_LENGTH >> 8;
 //    next_step+=1;
-//    sm.data[next_step] = MESSAGE_INTEGRITY_LENGTH;
+//    data_req[next_step] = MESSAGE_INTEGRITY_LENGTH;
 //    next_step+=1;
+//
+//
 //    n = 3;
+//
 //    while(n >= 0)
 //    {
-//        sm.data[next_step] = MESSAGE_INTEGRITY_VALUE_1 >> (n*8) ;
+//        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_1 >> (n*8) ;
 //        next_step+=1;
 //        n--;
 //    }
 //    n = 3;
 //    while(n >= 0)
 //    {
-//        sm.data[next_step] = MESSAGE_INTEGRITY_VALUE_2 >> (n*8) ;
+//        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_2 >> (n*8) ;
 //        next_step+=1;
 //        n--;
 //    }
 //    n = 3;
 //    while(n >= 0)
 //    {
-//        sm.data[next_step] = MESSAGE_INTEGRITY_VALUE_3 >> (n*8) ;
+//        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_3 >> (n*8) ;
 //        next_step+=1;
 //        n--;
 //    }
 //    n = 3;
 //    while(n >= 0)
 //    {
-//        sm.data[next_step] = MESSAGE_INTEGRITY_VALUE_4 >> (n*8) ;
+//        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_4 >> (n*8) ;
 //        next_step+=1;
 //        n--;
 //    }
 //    n = 3;
 //    while(n >= 0)
 //    {
-//        sm.data[next_step] = MESSAGE_INTEGRITY_VALUE_5 >> (n*8) ;
+//        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_5 >> (n*8) ;
 //        next_step+=1;
 //        n--;
 //    }
+//
+//
 //    size_all_stun += STUN_HEADER_ATTR + MESSAGE_INTEGRITY_LENGTH;
-//    uint32_t crc = Crc32((unsigned char*)sm, size_all_stun);
+//    uint32_t crc = Crc32((unsigned char*)data_req, size_all_stun);
 //    printf("Crc32 result = %x\n", crc);
-//    // SEND
-//    sm.data_len = htons(size_all_stun);
-//    n = sendto(sockfd, &sm, (STUN_HEADER + size_all_stun), 0, (struct sockaddr*)&stun_browser_addr, sizeof(stun_browser_addr));
+//
+//
+//    //FINGERPRINT
+//    printf("FINGERPRINT\n");
+//    data_req[next_step] = crc >> 8;
+//    next_step+=1;
+//    data_req[next_step] = crc;
+//    next_step+=1;
+//    data_req[next_step] = FINGERPRINT_LENGTH >> 8;
+//    next_step+=1;
+//    data_req[next_step] = FINGERPRINT_LENGTH;
+//    next_step+=1;
+//    crc = crc ^ 0x5354554E;
+//    n = 3;
+//    while(n >= 0)
+//    {
+//        data_req[next_step] = crc >> (n*8) ;
+//        next_step+=1;
+//        n--;
+//    }
+//    
+//
+//    data_req[2] = size_all_stun >> 8;
+//    data_req[3] = size_all_stun;
+//    n = sendto(sockfd, data_req, (STUN_HEADER + size_all_stun), 0, (struct sockaddr*)&stun_browser_addr, sizeof(stun_browser_addr));
 //    if(n < STUN_HEADER + size_all_stun)
 //    {
 //        printf("Error with sendto\n");
@@ -364,21 +683,31 @@ void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, 
 //    printf("Sendto n = %d\n", n);
 //    return 0;
 //}
-int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name)
+int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name, char* pwd)
 {
-    int n = 0;
+    /*int n = 0;
     int rndfd;
     int sockfd;
+    unsigned int last_iov = 1;
     unsigned int next_step = 0;
     unsigned int size_all_stun = 0;
     struct sockaddr_in stun_addr;
     struct sockaddr_in stun_browser_addr;
     unsigned char data_req[276];
+    struct iovec iov[10];
+    struct header hd;
+    struct username u_name;
+    struct ice_controlling ice_c;
+    struct priority p;
+    struct use_candidate use_c;
+    struct message_integrity mi;
+    struct fingerprint f;
     // Socket server
     sockfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
     bzero(&stun_addr, sizeof(stun_addr));
     stun_addr.sin_family = AF_INET;
     stun_addr.sin_port = htons(ice_port_server);
+    inet_pton(AF_INET, ip_server, &stun_addr.sin_addr);
     n = bind(sockfd,(struct sockaddr *)&stun_addr,sizeof(stun_addr)); /// Was Opened port for stun request
     if(n != 0)
     {
@@ -386,169 +715,58 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
         return 1;
     }
     printf("Bind OK\n");
+    printf("PWD_D: %s\n", pwd);
     // Socket for send message
     bzero(&stun_browser_addr, sizeof(stun_browser_addr));
     stun_browser_addr.sin_family = AF_INET;
-    stun_browser_addr.sin_port = htons(ice_port_browser);
+    stun_browser_addr.sin_port = htons(ice_port_browser) ;
     inet_pton(AF_INET, ip_browser, &stun_browser_addr.sin_addr);
-    //
-    
-    data_req[next_step] = 0x00;
-    next_step+=1;
-    data_req[next_step] = 0x01;
-    next_step+=1;
-    
-    next_step+=1;
-    
-    next_step+=1;
-    data_req[next_step] = 0x2112A442 >> 24;
-    next_step+=1;
-    data_req[next_step] = 0x2112A442 >> 16;
-    next_step+=1;
-    data_req[next_step] = 0x2112A442 >> 8;
-    next_step+=1;
-    data_req[next_step] = 0x2112A442;
-    next_step+=1;
-    // Enter Id for header
-    rndfd=open("/dev/urandom", 0);
-    read(rndfd, (unsigned char*)(data_req+next_step), 12);
-    close(rndfd);
-    next_step += 12;
-    // USERNAME
+    //###########################################################################################
+    setHeader(&hd, iov, (char*)data_req, next_step); //HEADER
+    //###########################################################################################
     printf("USERNAME\n");
-    data_req[next_step] = USERNAME >> 8;
-    next_step+=1;
-    data_req[next_step] = USERNAME;
-    next_step+=1;
-    data_req[next_step] = strlen(name) >> 8;
-    next_step+=1;
-    data_req[next_step] = strlen(name);
-    next_step+=1;
-    strcat((char*)(data_req + next_step), name);
-    next_step += strlen(name);
+    setUSERNAME(&(u_name.t), iov, (char*)data_req, last_iov, next_step, name);//USERNAME
     printf("Value = %s\n", name);
-    data_req[next_step] = 0x0;
-    next_step+=1;
-    data_req[next_step] = 0x0;
-    next_step+=1;
-    data_req[next_step] = 0x0;
-    next_step+=1;
     size_all_stun = STUN_HEADER_ATTR + 3 + strlen(name);
-    // ICE-CONTROLLING
+    printf("SIZE: %d\n", size_all_stun);
+    //###########################################################################################
     printf("ICE-CONTROLLING\n");
-    data_req[next_step] = ICE_CONTROLLING >> 8;
-    next_step+=1;
-    data_req[next_step] = ICE_CONTROLLING;
-    next_step+=1;
-    data_req[next_step] = ICE_CONTROLLING_LENGTH >> 8;
-    next_step+=1;
-    data_req[next_step] = ICE_CONTROLLING_LENGTH;
-    next_step+=1;
-    rndfd=open("/dev/urandom", 0);
-    read(rndfd, (unsigned char*)(data_req+next_step), ICE_CONTROLLING_LENGTH);
-    close(rndfd);
-    next_step+=ICE_CONTROLLING_LENGTH;
-    size_all_stun += (STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH);
-    // PRIORITY
+    setICE_CONTROLLING(&(ice_c.t), iov, (char*)data_req, last_iov, next_step); //ICE-CONTROLLING
+    size_all_stun += STUN_HEADER_ATTR + ICE_CONTROLLING_LENGTH;
+    printf("SIZE: %d\n", size_all_stun);
+    //##########################################################################################
     printf("PRIORITY\n");
-    data_req[next_step] = PRIORITY >> 8;
-    next_step+=1;
-    data_req[next_step] = PRIORITY;
-    next_step+=1;
-    data_req[next_step] = PRIORITY_LENGTH >> 8;
-    next_step+=1;
-    data_req[next_step] = PRIORITY_LENGTH;
-    next_step+=1;
-    data_req[next_step] = PROPRITY_VALUE >> 24;
-    next_step+=1;
-    data_req[next_step] = PROPRITY_VALUE >> 16;
-    next_step+=1;
-    data_req[next_step] = PROPRITY_VALUE >> 8;
-    next_step+=1;
-    data_req[next_step] = PROPRITY_VALUE;
-    next_step+=1;
+    setPRIORITY(&(p.t), iov, (char*)data_req, last_iov, next_step); //PRIORITY
     size_all_stun += STUN_HEADER_ATTR + PRIORITY_LENGTH;
-    printf("Value = %d\n", PROPRITY_VALUE);
-    // USE_CANDIDATE
+    printf("SIZE: %d\n", size_all_stun);
+    //##########################################################################################
     printf("USE-CANDIDATE\n");
-    data_req[next_step] = USE_CANDIDATE >> 8;
-    next_step+=1;
-    data_req[next_step] = USE_CANDIDATE;
-    next_step+=1;
-    data_req[next_step] = USE_CANDIDATE_LENGTH >> 8;
-    next_step+=1;
-    data_req[next_step] = USE_CANDIDATE_LENGTH;
-    next_step+=1;
+    setUSE_CANDIDATE(&(use_c.t), iov, (char*)data_req, last_iov, next_step); //USE-CANDIDATE
     size_all_stun += STUN_HEADER_ATTR + USE_CANDIDATE_LENGTH;
-    // MESSAGE-INTEGRITY
+    printf("SIZE: %d\n", size_all_stun);
+    //##########################################################################################
     printf("MESSAGE-INTEGRITY\n");
-    data_req[next_step] = MESSAGE_INTEGRITY >> 8;
-    next_step+=1;
-    data_req[next_step] = MESSAGE_INTEGRITY;
-    next_step+=1;
-    data_req[next_step] = MESSAGE_INTEGRITY_LENGTH >> 8;
-    next_step+=1;
-    data_req[next_step] = MESSAGE_INTEGRITY_LENGTH;
-    next_step+=1;
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_1 >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_2 >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_3 >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_4 >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = MESSAGE_INTEGRITY_VALUE_5 >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
     size_all_stun += STUN_HEADER_ATTR + MESSAGE_INTEGRITY_LENGTH;
-    uint32_t crc = Crc32((unsigned char*)data_req, size_all_stun);
-    printf("Crc32 result = %x\n", crc);
-    //FINGERPRINT
+    hd.data_len = size_all_stun; 
+    hd.data_len = htons(hd.data_len);
+    integrity(&mi, iov, (char* )data_req, last_iov, next_step, pwd); //MESSAGE_INTEGRITY
+    hd.data_len = htons(hd.data_len);
+    printf("SIZE: %d\n", size_all_stun);
+    //##########################################################################################
     printf("FINGERPRINT\n");
-    data_req[next_step] = crc >> 8;
-    next_step+=1;
-    data_req[next_step] = crc;
-    next_step+=1;
-    data_req[next_step] = FINGERPRINT_LENGTH >> 8;
-    next_step+=1;
-    data_req[next_step] = FINGERPRINT_LENGTH;
-    next_step+=1;
-    crc = crc ^ 0x5354554E;
-    n = 3;
-    while(n >= 0)
-    {
-        data_req[next_step] = crc >> (n*8) ;
-        next_step+=1;
-        n--;
-    }
     size_all_stun += STUN_HEADER_ATTR + FINGERPRINT_LENGTH;
+    hd.data_len += STUN_HEADER_ATTR + FINGERPRINT_LENGTH;
+    hd.data_len = htons(hd.data_len);
+    printf("Fing: %d\n", hd.data_len);
+    Fingerprint(&f, iov, (char*)data_req, last_iov, next_step); //FINGERPRINT
+    printf("SIZE: %d\n", size_all_stun);
+    hd.data_len = htons(hd.data_len);
+    //##########################################################################################
+    
+
     data_req[2] = size_all_stun >> 8;
     data_req[3] = size_all_stun;
+    hd.data_len = htons(size_all_stun);
     n = sendto(sockfd, data_req, (STUN_HEADER + size_all_stun), 0, (struct sockaddr*)&stun_browser_addr, sizeof(stun_browser_addr));
     if(n < STUN_HEADER + size_all_stun)
     {
@@ -556,6 +774,24 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
         printf("Sendto n = %d\n", n);
         return 1;
     }
-    printf("Sendto n = %d\n", n);
-    return 0;
+    printf("Sendto n = %d\n", n);*/
+    int pid = fork();
+        if(pid == 0)
+	{	
+            // Child
+	    printf("In child process:\n");
+	    char port_browser[10] = {0};
+	    char port_server[10] = {0};
+            sprintf(port_browser, "%d", ice_port_browser);
+	    sprintf(port_server, "%d", ice_port_server);
+            execl("./tcp_server/./perl_script.pl", "perl_script.pl", ip_server, port_server, ip_browser, port_browser, pwd, name, NULL);
+	    return 0;
+	}
+	else
+	{
+            // Parent
+            int status;
+	    waitpid(pid, &status, 0);
+	}
+    	return 0;
 }

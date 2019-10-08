@@ -29,7 +29,7 @@ const hdConstraints = {
 }
 
 var room = 'VideoRoom';
-var socket = io.connect('https://10.168.75.94:7000');
+var socket = io.connect('https://10.168.191.245:7000');
 
 if (room !== '') {
   socket.emit('create or join', room);
