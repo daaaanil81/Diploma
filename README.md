@@ -11,5 +11,7 @@ In camera_file directory:
   2. ln -s ../opt/openssl/include/openssl .
   3. export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/opt/openssl/lib/
 # For create certificate:
-  openssl req -new -newkey rsa:4096 -days 36500 -nodes -x509 -keyout "localhost-100y.key" -out "localhost-100y.cert"
- 
+  openssl req -new -newkey rsa:4096 -days 36500 -nodes -x509 -keyout "localhost-100y.key" -out "localhost-100y.cert
+# For perl scripts
+  1. perl -MCPAN -e 'install inc::Module::Install'
+  2. 

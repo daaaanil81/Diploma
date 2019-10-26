@@ -1,5 +1,5 @@
 const remoteVideo = document.getElementById("remoteVideo");
-//const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+//\const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
 const localConnection = new RTCPeerConnection(null);
 var localDescription;
 var remoteDescription;
@@ -66,6 +66,9 @@ connection.onmessage = function (event) {
     }
 };
 function sendIceCandidate(event) {
+    if (event.candidate) {
+        console.log("Candidate: " + event.candidate.candidate);
+    }
     if (event.candidate && sizeIce <= 0 ) {
         localIce = event.candidate;
         console.log("Send local ice candidate");

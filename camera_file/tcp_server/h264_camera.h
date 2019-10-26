@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <zlib.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define TCP_PORT 554
 #define DESCRIBE_BUFFER_SIZE 1024
@@ -47,6 +49,8 @@
 #define FINGERPRINT 0x8028
 #define FINGERPRINT_LENGTH 0x0004
 #define STUN_CRC_XOR 0x5354554eUL
+#define BUFSIZE 4600
+#define NAMEDPIPE_NAME "/tmp/PipeOne"
 /*
 struct iovec {
     void  *iov_base;    // Starting address
@@ -60,7 +64,8 @@ struct pthread_arguments
     int camerafd; /// Identificator for request on request
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
-    char sdp_answer[1024]; /// Container for sdp from server
+    char sdp_answer[4400]; /// Container for sdp from server
+    char answer_to_engine[1024];
     unsigned int port_ice; /// Port in ice candidate on server
     unsigned int port_camera; /// Port for receive stream from camera
     char ice_browser[300]; /// Ice candidate from browser
@@ -74,6 +79,7 @@ struct pthread_arguments
     char pwd_server[30]; ///PWD from server
     pthread_t tchild; /// Identificator thread
 };
+
 struct header {
     uint16_t msg_type;
     uint16_t data_len;
@@ -128,7 +134,8 @@ void setPRIORITY(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned in
 void setUSE_CANDIDATE(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
 void integrity(struct message_integrity* mi, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* pwd);
 void Fingerprint(struct fingerprint* f, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
-
+int sendSDP_rtpengine(struct pthread_arguments* p_a);
+void generationSDP_BROWSER(struct pthread_arguments* p_a, unsigned char* buf);
 
 struct argumenst_for_camera {
     unsigned int port_ice;
@@ -164,6 +171,8 @@ static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
 static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-cost 999";
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";
+static char relay_candidate_1[] = "candidate:749832538 1 udp 25108223 ";
+static char relay_candidate_2[] = " 60840 typ relay raddr 127.0.0.1 rport 34793 generation 0 network-id 1 network-cost 10";
 
 static unsigned int port_ice_start = 53532;
 static unsigned int port_camera_start = 43700;
