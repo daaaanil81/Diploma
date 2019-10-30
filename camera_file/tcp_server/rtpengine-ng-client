@@ -9,7 +9,7 @@ use Getopt::Long;
 use Data::Dumper;
 use Rtpengine;
 
-my %options = ('proxy-address' => '10.168.168.165', 'proxy-port' => 2223);
+my %options = ('proxy-address' => '127.0.0.1', 'proxy-port' => 2223);
 
 GetOptions(
 	'proxy-address=s'		=> \$options{'proxy-address'},
@@ -18,15 +18,15 @@ GetOptions(
 	'to-tag=s'			=> \$options{'to-tag'},
 	'call-id=s'			=> \$options{'call-id'},
 	'via-branch=s'			=> \$options{'via-branch'},
-	'protocol=s'			=> \$options{'transport protocol'},
-	'trust-address'			=> \$options{'trust address'},
+	'protocol=s'			=> \$options{'transport-protocol'},
+	'trust-address'			=> \$options{'trust-address'},
 	'sip-source-address'		=> \$options{'sip source address'},
 	'no-rtcp-attribute'		=> \$options{'no rtcp attribute'},
 	'full-rtcp-attribute'		=> \$options{'full rtcp attribute'},
 	'symmetric'			=> \$options{'symmetric'},
 	'asymmetric'			=> \$options{'asymmetric'},
 	'replace-origin'		=> \$options{'replace-origin'},
-	'replace-session-connection'	=> \$options{'replace-session connection'},
+	'replace-session-connection'	=> \$options{'replace-session-connection'},
 	'client-address=s'		=> \$options{'client-address'},
 	'sdp=s'				=> \$options{'sdp'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
@@ -76,16 +76,16 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport-protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id')) {
 	defined($options{$x}) and $packet{$x} = \$options{$x};
 }
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv')) {
+for my $x (split(/,/, 'trust-address,symmetric,asymmetric,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
-for my $x (split(/,/, 'origin,session connection')) {
+for my $x (split(/,/, 'origin,session-connection')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
 for my $x (split(/,/, 'rtcp-mux,SDES,supports')) {
@@ -120,7 +120,10 @@ sub slurp_file {
 }
 
 if (defined($options{sdp})) {
-	$packet{sdp} = $options{sdp};
+	#my $test = "$options{sdp}";
+	$packet{sdp} = $options{sdp}; 
+	substr($packet{sdp}, 0, 1, '');
+	#print("PACKET: \n$packet{sdp}\n");
 }
 elsif (defined($options{'sdp-file'})) {
 	$packet{sdp} = slurp_file($options{'sdp-file'});

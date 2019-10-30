@@ -17,7 +17,7 @@ var options = {
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 //#####################################################################################################################
-const connection = new WebSocket('wss://10.168.191.245:8666', 'lws-minimal'); // tcp server on c/c++
+const connection = new WebSocket('wss://10.168.168.166:8666', 'lws-minimal'); // tcp server on c/c++
 connection.onopen = function () {
     console.log("Send");
     //

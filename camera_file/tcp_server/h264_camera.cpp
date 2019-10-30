@@ -346,35 +346,46 @@ int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* s
         printf("%s\n", answer);
     return 0;
 }
-void generationSDP_BROWSER(struct pthread_arguments* p_a, unsigned char* buf)
+void generationSDP_BROWSER(struct pthread_arguments* p_a, char* buf)
 {
 	char time[4600] = {0};
 	char* t1 = NULL;
 	char* t2 = NULL;
 	char* t3 = NULL;
-	
-	strcpy(time, (char*)buf+3);
+	char portic[10];
+	//strcpy(time, (char*)buf+3);
+	/*
 	t1 = strstr(time, "IP4");
 	t1 += 4;
 	strncpy(p_a->sdp_offer, time, t1-time);
 	strcat(p_a->sdp_offer, p_a->ip_server);
 	strcat(p_a->sdp_offer, "\r\n");
 	t1 = strstr(time, "s=-");
-	t2 = strstr(time, "a=msid");
-	strncat(p_a->sdp_offer, t1, t2-t1);
+	*/
+	t2 = strstr(buf, "a=msid");
+	//strncat(p_a->sdp_offer, t1, t2-t1);
 	t3 = strstr(t2, "\n");
 	t3 += 1;
-	strncat(p_a->sdp_offer, t2, t3-t2);
+	strncpy(p_a->sdp_offer, buf, t3-buf);
 		
-	strcat(p_a->sdp_offer, "m=video 60840 ");
-	t1 = strstr(t1, "UDP");
+	strcat(p_a->sdp_offer, "m=video ");
+	sprintf(portic, "%d ", p_a->port_ice_browser);
+	strcat(p_a->sdp_offer, portic);
+	t1 = strstr(t3, "UDP");
 	t2 = strstr(t1, "\r\n");
+
 	strncat(p_a->sdp_offer, t1, t2-t1+2);
+	
 	strcat(p_a->sdp_offer, "c=IN IP4 ");
 	strcat(p_a->sdp_offer, p_a->ip_server);
 	strcat(p_a->sdp_offer, "\r\n");
 	t1 = strstr(t1, "a=rtcp");
-	strcat(p_a->sdp_offer, t1);	
+	t2 = strstr(t1, "a=recvonly");
+	t3 = strstr(t2, "\n");
+	t3 += 1;
+	strncat(p_a->sdp_offer, t1, t2-t1);
+	strcat(p_a->sdp_offer, "a=sendrecv\r\n");
+	strcat(p_a->sdp_offer, t3);
 }
 
 //int sdpParse(char* des, char* flag,char* answer, char*ice)
@@ -388,9 +399,9 @@ int sdpParse(struct pthread_arguments* p_a)
     "a=fmtp:96 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\n"
     "a=rtcp-fb:96 transport-cc\r\n"
     "a=rtcp-fb:96 ccm fir\r\n"
-    "a=rtcp-mux\r\n"
-    "a=sendonly\r\n";
-    
+    "a=recvonly\r\n";
+    //"a=setup:actpass\r\n"
+    //"a=rtcp-mux\r\n"
     
     strncpy(p_a->uflag_server, "sEMT",sizeof("sEMT"));
     memset(p_a->pwd_server, 0, sizeof(p_a->pwd_server));
@@ -416,7 +427,7 @@ int sdpParse(struct pthread_arguments* p_a)
      */
     time = strstr(p_a->sdp_camera, "sprop-parameter-sets");
     strncat(fmtp, t, time - t - 2);
-    sprintf(p_a->answer_to_engine, "%s%s 2 IN IP4 %s\r\ns=Daniil Team\r\nc=IN IP4 %s\r\nt=0 0\r\nm=video %d RTP/AVP 96\r\n%s", version, sess_version, p_a->ip_server, p_a->ip_server, p_a->port_ice, sdp_f);
+    sprintf(p_a->answer_to_engine, "%s%s 2 IN IP4 127.0.0.1\r\ns=Daniil Team\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\nm=video %d RTP/AVPF 96\r\n%s", version, sess_version,  p_a->port_ice, sdp_f);
     if(DEBUG)
         printf("%s\n", p_a->answer_to_engine);
     return 0;
@@ -435,14 +446,14 @@ void create_ice(struct pthread_arguments* p_a)
                            host_entry->h_addr_list[0]));
     printf("%s\n", IPbuffer);
     memset((char*)p_a->ip_server, 0, sizeof(p_a->ip_server));
-    strcpy((char*)p_a->ip_server, IPbuffer);
+    strcpy((char*)p_a->ip_server, "10.168.168.165");
     //sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, p_a->port_ice, ice_candidate_second);
     if(DEBUG)
         printf("%s\n", p_a->ice_server);
 }
 //iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, p_a->port_ice_browser, p_a->uflag_browser);
 //void iceParse(char* ice, char* ip_browser, char* ip_server, unsigned int& port, char* uflag_browser)
-void iceParse(struct pthread_arguments* p_a, unsigned int& port)
+void iceParse(struct pthread_arguments* p_a)
 {
     char* t1 = NULL;
     char* t2;
@@ -471,7 +482,7 @@ void iceParse(struct pthread_arguments* p_a, unsigned int& port)
     t1 += t2 - t1 + 1;
     t2 = strstr(t1, " ");
     strncpy(time_port, t1, t2 - t1);
-    port = atoi(time_port);
+    p_a->port_ice_browser = atoi(time_port);
     t1 = strstr(p_a->ice_browser, "ufrag");
     t1 += 6;
     t2 = strstr(t1, " ");
@@ -801,7 +812,7 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
         return 1;
     }
     printf("Sendto n = %d\n", n);*/
-    int pid = fork();
+    /*int pid = fork();
         if(pid == 0)
 	{	
             // Child
@@ -819,18 +830,21 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
             int status;
 	    waitpid(pid, &status, 0);
 	}
-    	return 0;
+    	return 0;*/
 }
 int sendSDP_rtpengine(struct pthread_arguments* p_a)
 {	
 	char* rtpengine_path = "./tcp_server/./rtpengine-ng-client";
 	char* command_offer = " offer";
 	char* command__answer = " answer";
-	char* flags_offer = " --trust-address --all --strict-source --from-tag=sgadhdage --protocol=RTP/AVPF --call-id=sfghjfsh --ICE=remove --rtcp-mux=demuxe --replace-origin --replace-session-connection --SDES=off";
-	char* flags_answer = " --trust-address --all --strict-source --from-tag=sgadhdagm --protocol=RTP/SAVPF --to-tag=sgadhdagk --rtcp-mux=offer --replace-origin --replace-session-connection --SDES=off --call-id=sfghjfsh --ICE=force";
-	char* sdp = " --sdp=$'";
+	char* flags_offer = " --trust-address --all --from-tag=sgadhdag --strict-source --protocol=RTP/AVPF --SDES=off --call-id=sfghjfsh --ICE=remove --rtcp-mux=demux --replace-origin --replace-session-connection";
+	//char* flags_offer = " --ICE=remove --trust-address --from-tag=sgadhdage --protocol=RTP/AVPF --strict-source --replace-origin --replace-session-connection --SDES=off --call-id=sfghjfsh --rtcp-mux=demux";
+	char* flags_answer = " --trust-address --all --from-tag=sgadhdag  --strict-source --protocol=RTP/SAVPF --SDES=off --to-tag=sgadhdagk --rtcp-mux=offer --replace-origin --replace-session-connection --call-id=sfghjfsh --ICE=force";
+	//char* flags_answer = " --trust-address --port-latching --from-tag=sgadhdagm --protocol=RTP/SAVPF --replace-origin --replace-session-connection --SDES=off --call-id=sfghjfsh --to-tag=sgadhdagk --ICE=force --rtcp-mux=offer";
+	char* sdp = " --sdp=$\'";
 	char all_command[4600]; 
 	struct sockaddr_in to_rtp_addr;
+	struct sockaddr_in to_rtp_addr1;
 	//##############################################
 	int sockfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
 	bzero(&to_rtp_addr, sizeof(to_rtp_addr));
@@ -838,8 +852,15 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	to_rtp_addr.sin_port = htons(60840);
 	to_rtp_addr.sin_addr.s_addr = INADDR_ANY;
 	bind(sockfd,(struct sockaddr *)&to_rtp_addr, sizeof(to_rtp_addr)); /// Was Opened port for stun request
-
-	sprintf(all_command, "%s%s%s%s%sa=%s\r\na=%s%s%s\r\n\'", rtpengine_path, command_offer, flags_offer, sdp, p_a->sdp_offer, p_a->ice_browser, relay_candidate_1, p_a->ip_server, relay_candidate_2);
+	int sfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
+        bzero(&to_rtp_addr1, sizeof(to_rtp_addr1));
+        to_rtp_addr1.sin_family = AF_INET;
+        to_rtp_addr1.sin_port = htons(p_a->port_ice);
+        to_rtp_addr1.sin_addr.s_addr = INADDR_ANY;
+        bind(sfd,(struct sockaddr *)&to_rtp_addr1, sizeof(to_rtp_addr)); /// Was Opened port for stun request
+	//sprintf(all_command, "%s%s%s%s%sa=%s\r\na=%s%s%s\r\n\'", rtpengine_path, command_offer, flags_offer, sdp, p_a->sdp_offer, p_a->ice_browser, relay_candidate_1, "10.168.168.165", relay_candidate_2);
+	sprintf(all_command, "%s%s%s%s%sa=%s\r\n\'", rtpengine_path, command_offer, flags_offer, sdp, p_a->sdp_offer, p_a->ice_browser);
+	printf("\n%s\n", all_command);
 	int fd, len;
    	char buf[BUFSIZE];
 	memset(buf, 0, sizeof(buf));
@@ -864,7 +885,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	
 	
 	//#############################################
-	sleep(3);	
+	//sleep(10);	
 	memset(all_command, 0, sizeof(all_command));
 	sprintf(all_command, "%s%s%s%s%s\'", rtpengine_path, command__answer, flags_answer, sdp, p_a->answer_to_engine);
 	system(all_command);
@@ -893,7 +914,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	strncpy(p_a->sdp_answer, buf, t1-buf);
 
 	//strcat(p_a->sdp_answer, "\0");
-	printf("SDP Rtpengine:i \n%s", p_a->sdp_answer);
+	printf("SDP Rtpengine: \n%s", p_a->sdp_answer);
 	printf("ICE Rtpengine: \n%s\n", p_a->ice_server);
 	//printf("Size: %d\nSdp: %c\n", strlen(p_a->sdp_answer), p_a->sdp_answer[strlen(p_a->sdp_answer)]);
 	//#############################################
@@ -901,8 +922,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	//system(all_command);
 	//system("./tcp_server/./test.pl");
 	//sleep(10);
+	close(sfd);
 	close(sockfd);
 	close(p_a->camerafd);
-	
-
 }	

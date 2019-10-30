@@ -4,7 +4,7 @@
 static int interrupted;
 static int index_arr;
 unsigned char buf[4100] = {0};
-
+char timing[4300] = {0};
 static struct pthread_arguments *arg_pthread = NULL; /// Arguments for settings connection
 void* udp_stream(void* arg)
 {
@@ -12,7 +12,7 @@ void* udp_stream(void* arg)
     struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
     unsigned int port_ice_browser; /// Port ice dandidate browser
     //iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, port_ice_browser, p_a->uflag_browser);
-    iceParse(p_a, port_ice_browser);
+    iceParse(p_a);
     printf("Ip Ice browser: %s\n", p_a->ip_browser);
     printf("Port browser: %d\n", port_ice_browser);
     printf("Ip Ice server: %s\n", p_a->ip_server);
@@ -116,7 +116,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 {
                     if(strncmp(afc[index_arr].ip, arg_pthread->ip_camera, strlen(arg_pthread->ip_camera)) == 0)
                     {
-                        other_user = true;
+                        other_user =  false;
                         break;
                     }
                     index_arr++;
@@ -200,10 +200,10 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 printf("SDP Offer\n");
 		memset(arg_pthread->sdp_offer, 0, sizeof(arg_pthread->sdp_offer));
-		generationSDP_BROWSER(arg_pthread, buf);
- 		//strcpy(arg_pthread->sdp_offer, (char*)buf + strlen("SDP"));
+		//generationSDP_BROWSER(arg_pthread, buf);
+ 		strcpy(timing, (char*)buf + strlen("SDP"));
                 //pwdParse(arg_pthread); 
-                printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
+                //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
                  /** Setup into camera
                  *
                  *
@@ -228,7 +228,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 if(ice_step && sdp_step) /// was finished all step
                 {
 		    sendSDP_rtpengine(arg_pthread);
-                    /*
+                    
 		    printf("Send answer: \n");
 		    memset(buf, 0, sizeof(buf));
                     sprintf((char*)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
@@ -238,7 +238,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
 		    memset(buf, 0, sizeof(buf));
                     sprintf((char*)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                     lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server)+strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
-		    */
+		    
                     /*if(pthread_create(&arg_pthread->tchild,0,udp_stream,arg_pthread) < 0)
                     {
                         perror("Can't create thread!");
@@ -252,24 +252,30 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 printf("ICE: \n\n%s\n", arg_pthread->ice_browser);
 		//unsigned int port_ice_browser; /// Port ice dandidate browser
     		//iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, port_ice_browser, p_a->uflag_browser);
-    		//iceParse(arg_pthread, port_ice_browser);
-
+    		iceParse(arg_pthread);
+		
                 ice_step = true; /// Marker, ice step was finished
                 if(ice_step && sdp_step)
                 {
                     printf("Create Threads\n");
+		    generationSDP_BROWSER(arg_pthread, timing);
+		    //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
 		    sendSDP_rtpengine(arg_pthread);
-		    /*	 
+		  
+                    //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
+		    	 
 		    printf("Send answer: \n");
 		    memset(buf, 0, sizeof(buf));
                     sprintf((char*)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
-                    lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer)+strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
+	  	    lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer)+strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
 		    
 		    printf("Send Ice: \n");
 		    memset(buf, 0, sizeof(buf));
                     sprintf((char*)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                     lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server)+strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
-		    */
+		    busy = false;
+		    sleep(1);
+		    free(arg_pthread);		    
                     /*if(pthread_create(&arg_pthread->tchild,0,udp_stream,arg_pthread) < 0)
                     {
                         perror("Can't create thread!");
@@ -281,7 +287,10 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             break;
         case LWS_CALLBACK_CLOSED: /// Close server
             printf("Close\n");
-            free(arg_pthread);
+	    if(busy == true)
+	    {
+            	free(arg_pthread);
+	    }
             break;
         default:
             break;
