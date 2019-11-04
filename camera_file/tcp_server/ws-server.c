@@ -10,18 +10,7 @@ void* udp_stream(void* arg)
 {
     printf("Udp stream create.\n");
     struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
-    unsigned int port_ice_browser; /// Port ice dandidate browser
-    //iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, port_ice_browser, p_a->uflag_browser);
-    iceParse(p_a);
-    printf("Ip Ice browser: %s\n", p_a->ip_browser);
-    printf("Port browser: %d\n", port_ice_browser);
-    printf("Ip Ice server: %s\n", p_a->ip_server);
-    printf("Port server: %d\n", p_a->port_ice);
-     
-    unsigned int length_uflag = strlen(p_a->uflag_browser) + strlen(p_a->uflag_server) + 2;
-    sendSDP_rtpengine(p_a);
-    //char* name = new char[length_uflag];
-    //generationSTUN(p_a->ip_server, p_a->ip_browser, port_ice_browser, p_a->port_ice, p_a->uflag_browser, p_a->pwd_browser);
+    
     //free(name);
     return 0;
 }
