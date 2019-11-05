@@ -8,11 +8,62 @@ char timing[4300] = {0};
 static struct pthread_arguments *arg_pthread = NULL; /// Arguments for settings connection
 void* udp_stream(void* arg)
 {
-    printf("Udp stream create.\n");
-    struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
+    	int socket_udp;
+	int socket_to_rtpengine;
+	int socket_from_rtpengine;
+	struct sockaddr_in servaddr;
+	struct sockaddr_in addr_to_rtpengine;
+	struct sockaddr_in addr_from_rtpengine;
+	char buf_camera[512] = {0};
+	printf("Udp stream create.\n");
+    	struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
     
-    //free(name);
-    return 0;
+	memset(&servaddr, 0, sizeof(servaddr));
+	servaddr.sin_family = AF_INET; // IPv4 
+        servaddr.sin_addr.s_addr = INADDR_ANY; 
+        servaddr.sin_port = htons(p_a->port_camera); 
+	
+	if ((socket_udp = socket(AF_INET, SOCK_DGRAM, 0)) == -1) 
+ 	{
+        	perror("socket udp");
+        	return 0;
+        }
+	if (bind(socket_udp, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) 
+    	{ 
+       		perror("bind failed"); 
+        	return 0; 
+    	} 
+
+	play_to_camera(p_a->sddr, p_a->camerafd, p_a->ip_camera, p_a->session);	
+    	
+	socket_from_rtpengine = socket(AF_INET, SOCK_DGRAM, 0);
+	memset(&addr_to_rtpengine, 0, sizeof(addr_to_rtpengine));
+	addr_to_rtpengine.sin_family = AF_INET; // IPv4 
+        addr_to_rtpengine.sin_addr.s_addr = INADDR_ANY; 
+        addr_to_rtpengine.sin_port = htons(p_a->port_to_rtpengine); 
+	
+	memset(&addr_from_rtpengine, 0, sizeof(addr_from_rtpengine));
+	addr_from_rtpengine.sin_family = AF_INET; // IPv4 
+        addr_from_rtpengine.sin_addr.s_addr = INADDR_ANY; 
+        addr_from_rtpengine.sin_port = htons(p_a->port_from_rtpengine);
+
+	if (bind(socket_from_rtpengine, (const struct sockaddr *)&addr_from_rtpengine, sizeof(addr_from_rtpengine)) < 0) 
+    	{ 
+       		perror("bind failed"); 
+        	return 0; 
+    	} 
+	int i = 0;
+	while(i < 5000)
+	{
+		int n = recvfrom(socket_udp, (char *)buf_camera, sizeof(buf_camera), 0, NULL, 0); //resvfrom stream from camera
+		
+		i++;
+	}
+	//TEARDOWN to camera
+	close(socket_from_rtpengine);
+	close(p_a->camerafd);
+    	free(p_a);
+    	return 0;
 }
 static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
@@ -269,8 +320,9 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     {
                         perror("Can't create thread!");
                     }
-                    pthread_join(arg_pthread->tchild,0);
 		    */
+                    //pthread_join(arg_pthread->tchild,0);
+		    
                 }
             }
             break;
@@ -300,9 +352,8 @@ void sigint_handler(int sig)
 }
 void handler_sigsegv(int signum)
 {
-    printf("Segmentation fault\n");
+    printf("My Segmentation fault\n");
     interrupted = 1;
-    exit(0);
 }
 
 int main(int argc, const char **argv)

@@ -51,12 +51,7 @@
 #define STUN_CRC_XOR 0x5354554eUL
 #define BUFSIZE 4600
 #define NAMEDPIPE_NAME "/tmp/PipeOne"
-/*
-struct iovec {
-    void  *iov_base;    // Starting address
-    size_t iov_len;     // Number of bytes to transfer
-};
-*/
+
 struct pthread_arguments
 {
     struct sockaddr_in sddr; /// Struct for create tcp socket for requests camera
@@ -66,9 +61,11 @@ struct pthread_arguments
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
     char answer_to_engine[1024];
-    unsigned int port_ice; /// Port in ice candidate on server
+    unsigned int port_ice; /// Port for rtpengine in sdp camera
     unsigned int port_camera; /// Port for receive stream from camera
     unsigned int port_ice_browser;
+    unsigned int port_from_rtpengine;
+    unsigned int port_to_rtpengine;
     char ice_browser[300]; /// Ice candidate from browser
     char ice_server[300]; /// ICe candidate from server
     char session[20]; /// Number session in setup from camera

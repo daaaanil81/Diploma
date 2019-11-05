@@ -6,9 +6,13 @@ TCP_PROJECT=$(TCP_SERVER_PATH)/ws-server
 start_http_server:
 	node $(SERVER_PATH)/http_server.js $(IP)
 compile: udp
-	g++ -O0 -g  $(TCP_SERVER_PATH)/h264_camera.cpp $(TCP_SERVER_PATH)/ws-server.c  $(TCP_SERVER_PATH)/HMAX_CTX.c  -o $(TCP_PROJECT) -lssl -lm -lz -lcrypto  -pthread -lwebsockets
+	g++ -O0 -g  $(TCP_SERVER_PATH)/h264_camera.cpp $(TCP_SERVER_PATH)/ws-server.c  $(TCP_SERVER_PATH)/HMAX_CTX.c -o $(TCP_PROJECT) -lssl -lm -lz -lcrypto  -pthread -lwebsockets
 clean:
 	rm -rf $(TCP_SERVER_PATH)/*.dSYM
+	rm -rf $(TCP_SERVER_PATH)/*.swp
+	rm -rf $(TCP_SERVER_PATH)/*.swo
+	rm -rf $(UDP_FILE_PATH)/*.swp
+	rm -rf $(UDP_FILE_PATH)/*.swo
 	rm $(TCP_PROJECT)
 	rm $(UDP_FILE_PROJECT)
 open:

@@ -74,8 +74,6 @@ int main(int argc, char* argv[])
 	char ip_camera[16] = {0};
 	unsigned int port_camera = 554;
 	unsigned int port_stream = 0;
-	int sfd = socket(AF_INET, SOCK_DGRAM, 0); /// UDP
-	struct sockaddr_in udp_camera;
 	int socket_udp;
 	struct sockaddr_in tcp_camera_addr;
 	struct sockaddr_in servaddr;

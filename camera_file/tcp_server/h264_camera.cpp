@@ -427,6 +427,7 @@ int sdpParse(struct pthread_arguments* p_a)
      */
     time = strstr(p_a->sdp_camera, "sprop-parameter-sets");
     strncat(fmtp, t, time - t - 2);
+    p_a->port_from_rtpengine = p_a->port_ice;
     sprintf(p_a->answer_to_engine, "%s%s 2 IN IP4 127.0.0.1\r\ns=Daniil Team\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\nm=video %d RTP/AVPF 96\r\n%s", version, sess_version,  p_a->port_ice, sdp_f);
     if(DEBUG)
         printf("%s\n", p_a->answer_to_engine);
@@ -829,19 +830,17 @@ int generationSTUN(char* ip_server, char* ip_browser, unsigned int ice_port_brow
             // Parent
             int status;
 	    waitpid(pid, &status, 0);
-	}
-    	return 0;*/
+	}*/
+    	return 0;
 }
 int sendSDP_rtpengine(struct pthread_arguments* p_a)
 {	
-	char* rtpengine_path = "./tcp_server/./rtpengine-ng-client";
-	char* command_offer = " offer";
-	char* command__answer = " answer";
-	char* flags_offer = " --trust-address --all --from-tag=sgadhdag --strict-source --protocol=RTP/AVPF --SDES=off --call-id=sfghjfsh --ICE=remove --rtcp-mux=demux --replace-origin --replace-session-connection";
-	//char* flags_offer = " --ICE=remove --trust-address --from-tag=sgadhdage --protocol=RTP/AVPF --strict-source --replace-origin --replace-session-connection --SDES=off --call-id=sfghjfsh --rtcp-mux=demux";
-	char* flags_answer = " --trust-address --all --from-tag=sgadhdag  --strict-source --protocol=RTP/SAVPF --SDES=off --to-tag=sgadhdagk --rtcp-mux=offer --replace-origin --replace-session-connection --call-id=sfghjfsh --ICE=force";
-	//char* flags_answer = " --trust-address --port-latching --from-tag=sgadhdagm --protocol=RTP/SAVPF --replace-origin --replace-session-connection --SDES=off --call-id=sfghjfsh --to-tag=sgadhdagk --ICE=force --rtcp-mux=offer";
-	char* sdp = " --sdp=$\'";
+	const char* rtpengine_path = "./tcp_server/./rtpengine-ng-client";
+	const char* command_offer = " offer";
+	const char* command__answer = " answer";
+	const char* flags_offer = " --trust-address --all --from-tag=sgadhdag --strict-source --protocol=RTP/AVPF --SDES=off --call-id=sfghjfsh --ICE=remove --rtcp-mux=demux --replace-origin --replace-session-connection";
+	const char* flags_answer = " --trust-address --all --from-tag=sgadhdag  --strict-source --protocol=RTP/SAVPF --SDES=off --to-tag=sgadhdagk --rtcp-mux=offer --replace-origin --replace-session-connection --call-id=sfghjfsh --ICE=force";
+	const char* sdp = " --sdp=$\'";
 	char all_command[4600]; 
 	struct sockaddr_in to_rtp_addr;
 	struct sockaddr_in to_rtp_addr1;
@@ -860,7 +859,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
         bind(sfd,(struct sockaddr *)&to_rtp_addr1, sizeof(to_rtp_addr)); /// Was Opened port for stun request
 	//sprintf(all_command, "%s%s%s%s%sa=%s\r\na=%s%s%s\r\n\'", rtpengine_path, command_offer, flags_offer, sdp, p_a->sdp_offer, p_a->ice_browser, relay_candidate_1, "10.168.168.165", relay_candidate_2);
 	sprintf(all_command, "%s%s%s%s%sa=%s\r\n\'", rtpengine_path, command_offer, flags_offer, sdp, p_a->sdp_offer, p_a->ice_browser);
-	printf("\n%s\n", all_command);
+	//printf("\n%s\n", all_command);
 	int fd, len;
    	char buf[BUFSIZE];
 	memset(buf, 0, sizeof(buf));
@@ -880,6 +879,14 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
            	close(fd);
         }
 	printf("Sdp browser: %s\n", buf);
+	char* tt1 =  strstr(buf, "m=video");
+	tt1 += 1;
+	char* tt2 = strstr(tt1, "RTP");
+	tt2 -= 1;
+	char port_to_rtp[10] = {0};
+	strncpy(port_to_rtp, tt1, tt2-tt1);
+	p_a->port_to_rtpengine = atoi(port_to_rtp);
+	printf("Port to rtp: %d\n", p_a->port_to_rtpengine);
     	close(fd);
 	remove(NAMEDPIPE_NAME);
 	
@@ -912,7 +919,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	}
 	t1 -= 2;
 	strncpy(p_a->sdp_answer, buf, t1-buf);
-
+	
 	//strcat(p_a->sdp_answer, "\0");
 	printf("SDP Rtpengine: \n%s", p_a->sdp_answer);
 	printf("ICE Rtpengine: \n%s\n", p_a->ice_server);
@@ -925,4 +932,5 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	close(sfd);
 	close(sockfd);
 	close(p_a->camerafd);
+	return 0;
 }	
