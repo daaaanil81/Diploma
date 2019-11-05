@@ -885,6 +885,7 @@ int sendSDP_rtpengine(struct pthread_arguments* p_a)
 	tt2 -= 1;
 	char port_to_rtp[10] = {0};
 	strncpy(port_to_rtp, tt1, tt2-tt1);
+	printf("Port to rtp_text: %s\n", port_to_rtp);
 	p_a->port_to_rtpengine = atoi(port_to_rtp);
 	printf("Port to rtp: %d\n", p_a->port_to_rtpengine);
     	close(fd);
