@@ -9,7 +9,7 @@ use Getopt::Long;
 use Data::Dumper;
 use Rtpengine;
 
-my %options = ('proxy-address' => '127.0.0.1', 'proxy-port' => 2223);
+my %options = ('proxy-address' => 'localhost', 'proxy-port' => 2223);
 
 GetOptions(
 	'proxy-address=s'		=> \$options{'proxy-address'},

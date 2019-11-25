@@ -1,6 +1,6 @@
-const remoteVideo = document.getElementById("remoteVideo");
-//\const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
-const localConnection = new RTCPeerConnection(null);
+const remoteVideo = document.getElementById('remoteVideo');
+//const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+var localConnection;
 var localDescription;
 var remoteDescription;
 var localIce;
@@ -8,7 +8,7 @@ var remoteIce;
 var remoteStream;
 var sizeIce = 0;
 var flagSDP = true;
-
+var inboundStream = null;
 var options = {
     offerToReceiveAudio: false,
     offerToReceiveVideo: true
@@ -17,12 +17,14 @@ var options = {
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 //#####################################################################################################################
-const connection = new WebSocket('wss://10.168.168.166:8666', 'lws-minimal'); // tcp server on c/c++
+var connection = new WebSocket('wss://10.168.168.165:8666', 'lws-minimal'); // tcp server on c/c++
 connection.onopen = function () {
     console.log("Send");
     //
 };
 connection.onclose = function (event) {
+    localConnection.close();
+    localConnection = null;
     console.log("Close");
 };
 connection.onmessage = function (event) {
@@ -34,8 +36,13 @@ connection.onmessage = function (event) {
     }
     if (event.data === 'OK') {
         console.log(event.data);
+        localConnection = new RTCPeerConnection(null);
+        localConnection.onaddstream = function(event) {
+            remoteVideo.srcObject = event.stream;
+            remoteStream = event.stream;
+            console.log("Receive stream");
+        };
         localConnection.onicecandidate = sendIceCandidate; //ice candidate
-        localConnection.onaddstream = setRemoteStream;
         localConnection.createOffer(sLocalDescription, onError, options);
     }
 
@@ -48,20 +55,18 @@ connection.onmessage = function (event) {
         console.log("SDP");
         mes = event.data.substr(3, event.data.length - 3);
         console.log(mes);
-        var description = {type: "answer", sdp: mes};
+        var description = { type: "answer", sdp: mes };
         localConnection.setRemoteDescription(new RTCSessionDescription(description)).catch(onError_Valid_Description);
         remoteDescription = description;
     }
-    if(Type === 'ICE')
-    {
+    if (Type === 'ICE') {
         mes = event.data.substr(3, event.data.length - 3);
-        var candidate = new RTCIceCandidate({sdpMLineIndex: 0, candidate: mes});
+        var candidate = new RTCIceCandidate({ sdpMLineIndex: 0, candidate: mes });
         remoteIce = candidate;
         console.log("Receive remote ice candidate");
         localConnection.addIceCandidate(candidate, sucIce, errorIce);
     }
-    if(Type === 'Err')
-    {
+    if (Type === 'Err') {
         console.log(event.data);
     }
 };
@@ -69,7 +74,7 @@ function sendIceCandidate(event) {
     if (event.candidate) {
         console.log("Candidate: " + event.candidate.candidate);
     }
-    if (event.candidate && sizeIce <= 0 ) {
+    if (event.candidate && sizeIce <= 0) {
         localIce = event.candidate;
         console.log("Send local ice candidate");
         connection.send('ICE' + localIce.candidate);
@@ -77,7 +82,7 @@ function sendIceCandidate(event) {
     }
 }
 
-function sLocalDescription(description){
+function sLocalDescription(description) {
     localConnection.setLocalDescription(description);
     console.log("Offer description: \n" + description.sdp);
     localDescription = description;
@@ -100,21 +105,14 @@ function onError_Valid_Description() {
     flagSDP = false;
     connection.send("Error");
 }
-function setRemoteStream(event){
-    console.log("Set remote stream");
-    remoteStream = event.stream;
-    remoteVideo.srcObject = event.stream;
-}
-function sucIce()
-{
+
+function sucIce() {
     console.log("Successful in candidate other user");
 }
-function errorIce()
-{
+function errorIce() {
     console.log("Error in candidate other user");
 }
-function sendConnect()
-{
+function sendConnect() {
     console.log("Send");
     connection.send("Connect");
 }
