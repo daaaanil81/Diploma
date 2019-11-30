@@ -37,13 +37,16 @@ connection.onmessage = function (event) {
     if (event.data === 'OK') {
         console.log(event.data);
         localConnection = new RTCPeerConnection(null);
-        localConnection.onaddstream = function(event) {
+        /*localConnection.onaddstream = function(event) {
             remoteVideo.srcObject = event.stream;
             remoteStream = event.stream;
             console.log("Receive stream");
-        };
+        };*/
+        
+
         localConnection.onicecandidate = sendIceCandidate; //ice candidate
         localConnection.createOffer(sLocalDescription, onError, options);
+        localConnection.addEventListener('track', gotRemoteStream);
     }
 
     if (event.data === 'Busy') {
@@ -89,12 +92,14 @@ function sLocalDescription(description) {
     connection.send('SDP' + description.sdp);
 }
 
-/*function sRemoteDescription(description) {
-    localConnection.setLocalDescription(description);
-    console.log("Answer description: \n" + description.sdp);
-    localDescription = description;
-    connection.send('SDP' + description.sdp);
-}*/
+function gotRemoteStream(e) {
+    if (remoteVideo.srcObject !== e.streams[0]) {
+      remoteVideo.srcObject = e.streams[0];
+      console.log('pc2 received remote stream');
+    }
+    remoteVideo.play();
+    //remoteVideo.autoplay = true;
+  }
 
 function onError() {
     console.log("Error with description");
@@ -116,3 +121,6 @@ function sendConnect() {
     console.log("Send");
     connection.send("Connect");
 }
+window.onunload = function(){
+    console.log("Close pages");
+};
