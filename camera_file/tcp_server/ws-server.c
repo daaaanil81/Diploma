@@ -1,196 +1,10 @@
-#include "h264_camera.h"
-
+#include "dtls.h"
+#include <libwebsockets.h>
 static int interrupted;
 static int index_arr;
 unsigned char buf[4100] = {0};
 char timing[4300] = {0};
 static struct pthread_arguments *arg_pthread = NULL; /// Arguments for settings connection
-void *udp_stream(void *arg)
-{
-    int socket_rtp;
-    int socket_rtcp;
-
-    int socket_rtcp_to_rtpengine;
-    int socket_rtp_to_rtpengine;
-
-    struct sockaddr_in servaddr;
-    struct sockaddr_in addr_to_rtpengine;
-    struct sockaddr_in addr_from_rtpengine;
-
-    struct sockaddr_in addr_rtcp;
-    struct sockaddr_in addr_rtcp_from_rtpengine;
-    struct sockaddr_in addr_rtcp_to_rtpengine;
-
-    struct sockaddr_in addr_rtcp_camera;
-    char buf_rtp[1510] = {0};
-    char buf_rtcp[200] = {0};
-    int i = 0;
-    short fd_count = 3;
-    struct pollfd fds[3];
-    int n_rtp;
-    int n_rtcp;  
-    unsigned int sequnce_number = 1;
-    unsigned int sequnce_number_origin = 0;
-    struct pthread_arguments *p_a = (struct pthread_arguments *)arg;
-
-    printf("Udp stream create.\n");
-
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET; // IPv4
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(p_a->port_camera);
-
-    memset(&addr_rtcp, 0, sizeof(addr_rtcp));
-    addr_rtcp.sin_family = AF_INET; // IPv4
-    addr_rtcp.sin_addr.s_addr = INADDR_ANY;
-    addr_rtcp.sin_port = htons(p_a->port_camera + 1);
-
-    memset(&addr_rtcp_camera, 0, sizeof(addr_rtcp_camera));
-    addr_rtcp_camera.sin_family = AF_INET; // IPv4
-    addr_rtcp_camera.sin_addr.s_addr = INADDR_ANY;
-    inet_pton(AF_INET, p_a->ip_camera, &addr_rtcp_camera.sin_addr);
-    addr_rtcp_camera.sin_port = htons(p_a->port_udp_camera); ////////////////////////////////////////////////////
-
-    if ((socket_rtcp = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-        perror("socket rtcp");
-        return 0;
-    }
-    if ((socket_rtp = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-        perror("socket udp");
-        return 0;
-    }
-    if (bind(socket_rtp, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    {
-        perror("bind failed rtp");
-        return 0;
-    }
-    if (bind(socket_rtcp, (const struct sockaddr *)&addr_rtcp, sizeof(addr_rtcp)) < 0)
-    {
-        perror("bind failed rtcp");
-        return 0;
-    }
-    
-    if ( play_to_camera(p_a->sddr, p_a->camerafd, p_a->ip_camera, p_a->session) != 0)
-    {
-        perror("play_to_camera");
-        return 0;
-    }
-    //////////////////////////////////////////////////////////////////////////////
-
-    if ((socket_rtp_to_rtpengine = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-        perror("socket rtp to rtpengine");
-        return 0;
-    }
-
-    //Address for rtp from rtpengine
-    memset(&addr_from_rtpengine, 0, sizeof(addr_from_rtpengine));
-    addr_from_rtpengine.sin_family = AF_INET; // IPv4
-    inet_pton(AF_INET, p_a->ip_server, &addr_from_rtpengine.sin_addr);
-    addr_from_rtpengine.sin_port = htons(p_a->port_from_rtpengine); // Port = 53532
-
-    //Address for rtp to rtpengine
-    memset(&addr_to_rtpengine, 0, sizeof(addr_to_rtpengine));
-    addr_to_rtpengine.sin_family = AF_INET; // IPv4
-    inet_pton(AF_INET, p_a->ip_server, &addr_to_rtpengine.sin_addr);
-    addr_to_rtpengine.sin_port = htons(p_a->port_to_rtpengine); // Port = 12302
-
-    //Address for rtcp to rtpengine
-    if ((socket_rtcp_to_rtpengine = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-        perror("socket rtcp to rtpengine");
-        return 0;
-    }
-
-    memset(&addr_rtcp_to_rtpengine, 0, sizeof(addr_rtcp_to_rtpengine));
-    addr_rtcp_to_rtpengine.sin_family = AF_INET; // IPv4
-    inet_pton(AF_INET, p_a->ip_server, &addr_rtcp_to_rtpengine.sin_addr);
-    addr_rtcp_to_rtpengine.sin_port = htons(p_a->port_to_rtpengine + 1); 
-
-    memset(&addr_rtcp_from_rtpengine, 0, sizeof(addr_rtcp_from_rtpengine));
-    addr_rtcp_from_rtpengine.sin_family = AF_INET; // IPv4
-    //inet_pton(AF_INET, p_a->ip_server, &addr_rtcp_from_rtpengine.sin_addr);
-    addr_rtcp_from_rtpengine.sin_addr.s_addr = INADDR_ANY;
-    addr_rtcp_from_rtpengine.sin_port = htons(p_a->port_from_rtpengine + 1);
-    if (bind(socket_rtp_to_rtpengine, (const struct sockaddr *)&addr_from_rtpengine, sizeof(addr_from_rtpengine)) < 0)
-    {
-        perror("bind failed");
-        return 0;
-    }
-    if (bind(socket_rtcp_to_rtpengine, (const struct sockaddr *)&addr_rtcp_from_rtpengine, sizeof(addr_rtcp_from_rtpengine)) < 0)
-    {
-        perror("bind failed");
-        return 0;
-    }
-    /* First struct with descriptor */
-    fds[0].fd = socket_rtp;
-    fds[0].events = POLLIN;
-    /* Second struct with descriptor */
-    fds[1].fd = socket_rtcp;
-    fds[1].events = POLLIN;
-    /* Thirt struct with descriptor */
-    fds[2].fd = socket_rtcp_to_rtpengine;
-    fds[2].events = POLLIN;
-    
-    while(1)
-    {
-        if (poll(fds, fd_count, 1) < 0)
-        {
-            perror("Poll");
-            return 0;
-        }
-        if ((fds[0].revents & POLLIN) != 0)
-        {
-            bzero(buf_rtp, sizeof(buf_rtp));
-            n_rtp = recvfrom(socket_rtp, (char *)buf_rtp, sizeof(buf_rtp), 0, NULL, 0); //resvfrom stream from camera
-            unsigned char rtp_sps[200] = {0};
-            unsigned int size_sps_packet;
-            size_sps_packet = rtp_parse(buf_rtp, rtp_sps, &sequnce_number, &sequnce_number_origin, p_a);
-            if(size_sps_packet)
-            {
-                sendto(socket_rtp_to_rtpengine, rtp_sps, size_sps_packet, 0, (struct sockaddr *)&addr_to_rtpengine, sizeof(addr_to_rtpengine));
-                printf("SPS was send = %d\n", size_sps_packet);
-            }
-            n_rtp = sendto(socket_rtp_to_rtpengine, buf_rtp, n_rtp, 0, (struct sockaddr *)&addr_to_rtpengine, sizeof(addr_to_rtpengine));
-            printf("CAMERA->RTP->RTPengine\n");
-            printf("\n");
-            i++;
-        } 
-        if ((fds[1].revents & POLLIN) != 0)
-        {
-            bzero(buf_rtcp, sizeof(buf_rtcp));
-            n_rtcp = recvfrom(socket_rtcp, (char *)buf_rtcp, sizeof(buf_rtcp), 0, NULL, 0); //recvfrom rtcp from camera
-            n_rtcp = sendto(socket_rtcp_to_rtpengine, buf_rtcp, n_rtcp, 0, (struct sockaddr *)&addr_rtcp_to_rtpengine, sizeof(addr_rtcp_to_rtpengine));    
-            printf("CAMERA->RTCP->RTPengine\n");
-            printf("\n");
-        }
-        if ((fds[2].revents & POLLIN) != 0)
-        {
-            bzero(buf_rtcp, sizeof(buf_rtcp));
-            n_rtcp = recvfrom(socket_rtcp_to_rtpengine, (char *)buf_rtcp, sizeof(buf_rtcp), 0, NULL, 0); //recvfrom rtcp from camera    
-            n_rtcp = sendto(socket_rtcp, buf_rtcp, n_rtcp, 0, (struct sockaddr *)&addr_rtcp_camera, sizeof(addr_rtcp_camera));
-            printf("CAMERA<-RTCP<-RTPengine\n");
-            printf("\n");
-
-        }
-        if (interrupted == 1)
-        {
-            break;
-        }
-    }
-    
-    //TEARDOWN to camera
-    teardown_to_camera(p_a->camerafd, p_a->ip_camera, p_a->session);
-    close(socket_rtp);
-    close(socket_rtcp);
-    close(socket_rtcp_to_rtpengine);
-    close(socket_rtp_to_rtpengine);
-    close(p_a->camerafd);
-    free(p_a);
-    return 0;
-}
 static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
     return 0;
@@ -242,7 +56,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
 
         if (strcmp((char *)buf, "Connect") == 0) /// Repiet request on connection
         {
-            //printf("Connect\n");
+            printf("Connect\n");
             if (!busy)
             {
                 memset(buf, 0, sizeof(buf));
@@ -274,42 +88,9 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
         {
             strcpy(arg_pthread->ip_camera, (char *)buf + strlen("host"));
             memset(buf, 0, sizeof(buf));
-            index_arr = 0;
-            other_user = false;
-            while (afc[index_arr].port_ice != 0 && index_arr < SIZE_CAMERA) /// Search stream in list
-            {
-                if (strncmp(afc[index_arr].ip, arg_pthread->ip_camera, strlen(arg_pthread->ip_camera)) == 0)
-                {
-                    other_user = false;
-                    break;
-                }
-                index_arr++;
-            }
-            if (other_user) /// If stream from camera other user have already used
-            {
-                printf("Camera used other people.\n\n");
-                memcpy((char *)buf + LWS_PRE, "Error: Camera used other people.", strlen("Error: Camera used other people."));
-                lws_write(wsi, &buf[LWS_PRE], strlen("Error: Camera used other people."), LWS_WRITE_TEXT);
-                busy = false;
-                break;
-            }
-            if (index_arr == 0) /// If stream first on server
-            {
-                arg_pthread->port_ice = afc[index_arr].port_ice = port_ice_start;
-                arg_pthread->port_camera = afc[index_arr].port_camera = port_camera_start;
-                strcpy(afc[index_arr].ip, arg_pthread->ip_camera);
-            }
-            else /// If this stream no first on server
-            {
-                arg_pthread->port_ice = afc[index_arr].port_ice = afc[index_arr - 1].port_ice + 1000;
-                arg_pthread->port_camera = afc[index_arr].port_camera = afc[index_arr - 1].port_camera + 1000;
-                strcpy(afc[index_arr].ip, arg_pthread->ip_camera);
-            }
-            /** Connection on stream
-                 *
-                 *
-                 *
-                 */
+            arg_pthread->port_ice = port_ice_start;
+            arg_pthread->port_camera = port_camera_start;
+
             if (connect_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
             {
                 memcpy((char *)buf + LWS_PRE, "Error with connect to camera", strlen("Error with connect to camera"));
@@ -322,87 +103,50 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 memcpy((char *)buf + LWS_PRE, "OK", strlen("OK")); /// Send OK, camera with status "Work"
                 lws_write(wsi, &buf[LWS_PRE], strlen("OK"), LWS_WRITE_TEXT);
                 printf("Next steps\n\n\n");
-                /** Option into camera
-                     *
-                     *
-                     *
-                     */
                 if (option_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
                 {
                     printf("Error with option\n");
                     busy = false;
                     break;
                 }
-                /** Describe into camera
-                     *
-                     *
-                     *
-                     */
                 if (describe_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera, (char *)buf) != 0)
                 {
                     printf("Error with describe\n");
                     busy = false;
                     break;
                 }
-                strcpy(arg_pthread->sdp_camera, strstr((char *)buf, "v="));
-                /** Create server's ice candidate for browser
-                     *
-                     *
-                     *
-                     */
+                strcpy(arg_pthread->sdp_camera, strstr((char *)buf, "v=")); 
                 create_ice(arg_pthread);
-                /** Parsing sdp camera's for create sdp answer for browser
-                     *
-                     *
-                     *
-                     */
-                sdpParse(arg_pthread);
-                memset(buf, 0, sizeof(buf));
+                if (sdpParse(arg_pthread) < 0)
+                {
+                    printf("Error with sdp parse\n");
+                    busy = false;
+                    break;
+                }
+
             }
         }
         if (strncmp((char *)buf, "SDP", strlen("SDP")) == 0) /// Server receive SDP offer from browser and browser wait answer
         {
             printf("SDP Offer\n");
             memset(arg_pthread->sdp_offer, 0, sizeof(arg_pthread->sdp_offer));
-            //generationSDP_BROWSER(arg_pthread, buf);
-            strcpy(timing, (char *)buf + strlen("SDP"));
-            //pwdParse(arg_pthread);
-            //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
-            /** Setup into camera
-                 *
-                 *
-                 *
-            */
+  
+            strcpy(arg_pthread->sdp_offer, (char *)buf + strlen("SDP"));
             if (setup_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera, arg_pthread->port_camera, arg_pthread->session, arg_pthread->port_udp_camera) != 0)
             {
                 printf("Error with setup\n");
                 busy = false;
                 break;
             }
-
-            //memset(buf, 0, sizeof(buf));
-            //sprintf((char*)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
-            //lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer)+strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
-
-            //memset(buf, 0, sizeof(buf));
-            //sprintf((char*)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
-            //lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server)+strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
+            pwdParse(arg_pthread);
             sdp_step = true; /// Marker, sdp step was finished
-            //printf("ICE send\n");
             if (ice_step && sdp_step) /// was finished all step
             {
                 printf("Create Threads SDP\n");
-                generationSDP_BROWSER(arg_pthread, timing);
-                
-                if (sendSDP_rtpengine(arg_pthread) != 0)
-                {
-                    printf("Error with sdp parse");
-                    busy = false;
-                    free(arg_pthread);
-                    break;
-                }
-
-                printf("Send answer: \n");
+                generationSTUN(arg_pthread);
+                dtls_fingerprint_free(arg_pthread);
+                free(arg_pthread);
+                /*printf("Send answer: \n");
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer) + strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
@@ -411,65 +155,38 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server) + strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
+                */
                 busy = false;
                 sleep(1);
-                //free(arg_pthread);
-                if (pthread_create(&arg_pthread->tchild, 0, udp_stream, arg_pthread) < 0)
-                {
-                    perror("Can't create thread!");
-                }
-
-                pthread_detach(arg_pthread->tchild);
-                /*if(pthread_create(&arg_pthread->tchild,0,udp_stream,arg_pthread) < 0)
-                    {
-                        perror("Can't create thread!");
-                    }
-                    pthread_join(arg_pthread->tchild,0);*/
             }
         }
         if (strncmp((char *)buf, "ICE", strlen("ICE")) == 0)
         {
             strcpy(arg_pthread->ice_browser, (char *)buf + strlen("ICE"));
             printf("ICE: \n\n%s\n", arg_pthread->ice_browser);
-            //unsigned int port_ice_browser; /// Port ice dandidate browser
-            //iceParse(p_a->ice_browser, p_a->ip_browser, p_a->ip_server, port_ice_browser, p_a->uflag_browser);
             iceParse(arg_pthread);
-
             ice_step = true; /// Marker, ice step was finished
             if (ice_step && sdp_step)
             {
                 printf("Create Threads ICE\n");
-                generationSDP_BROWSER(arg_pthread, timing);
+                generationSTUN(arg_pthread);
+                dtls_fingerprint_free(arg_pthread);
+                free(arg_pthread);
                 //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
-                
-                if (sendSDP_rtpengine(arg_pthread) != 0)
-                {
-                    printf("Error with sdp parse");
-                    busy = false;
-                    free(arg_pthread);
-                    break;
-                }
-                //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
-
+                /*
                 printf("Send answer: \n");
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer) + strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
 
                 printf("Send Ice: \n");
-                memset(buf, 0, sizeof(buf));
-                
+                memset(buf, 0, sizeof(buf));    
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server) + strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
+                */
+
                 busy = false;
                 sleep(1);
-                //free(arg_pthread);
-                if (pthread_create(&arg_pthread->tchild, 0, udp_stream, arg_pthread) < 0)
-                {
-                    perror("Can't create thread!");
-                }
-
-                pthread_detach(arg_pthread->tchild);
             }
         }
         break;
@@ -511,7 +228,7 @@ int main(int argc, const char **argv)
     signal(SIGSEGV, handler_sigsegv);
 
     lws_set_log_level(logs, NULL);
-    lwsl_user("WebSocket security: http://10.168.191.245:8666\n");
+    lwsl_user("WebSocket security: http://10.168.166.132:8666\n");
     printf("Enter Ctrl + C for exit.\n");
     memset(&info, 0, sizeof info);
     info.port = 8666;

@@ -1,12 +1,13 @@
 SERVER_PATH=./js
 TCP_SERVER_PATH=./tcp_server
 UDP_FILE_PATH=./stream_to_file
+BASE64=./Base64
 UDP_FILE_PROJECT=$(UDP_FILE_PATH)/stream_to_file
 TCP_PROJECT=$(TCP_SERVER_PATH)/ws-server
 start_http_server:
 	node $(SERVER_PATH)/http_server.js $(IP)
 compile: udp
-	g++ -O0 -g  $(TCP_SERVER_PATH)/h264_camera.cpp $(TCP_SERVER_PATH)/ws-server.c Base64/base64.c $(TCP_SERVER_PATH)/HMAX_CTX.c -o $(TCP_PROJECT) -lssl -lm -lz -lcrypto  -pthread -lwebsockets
+	g++ -O0 -g $(TCP_SERVER_PATH)/dtls.c $(TCP_SERVER_PATH)/h264_camera.cpp $(TCP_SERVER_PATH)/ws-server.c $(BASE64)/base64.c -o $(TCP_PROJECT) -lssl -lm -lz -lcrypto  -pthread -lwebsockets -I/usr/include/glib-2.0
 clean:
 	rm -rf $(TCP_SERVER_PATH)/*.dSYM
 	rm -rf $(TCP_SERVER_PATH)/*.swp

@@ -17,7 +17,7 @@ var options = {
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 //#####################################################################################################################
-var connection = new WebSocket('wss://10.168.168.165:8666', 'lws-minimal'); // tcp server on c/c++
+var connection = new WebSocket('wss://10.168.166.132:8666', 'lws-minimal'); // tcp server on c/c++
 connection.onopen = function () {
     console.log("Send");
     //
@@ -122,5 +122,7 @@ function sendConnect() {
     connection.send("Connect");
 }
 window.onunload = function(){
+    localConnection.close();
+    localConnection = null;
     console.log("Close pages");
 };

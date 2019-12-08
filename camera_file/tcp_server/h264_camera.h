@@ -1,5 +1,3 @@
-#ifndef H264
-#define H264
 #include <stdio.h>
 #include <resolv.h>
 #include <sys/socket.h>
@@ -20,7 +18,7 @@
 #include <zlib.h>
 #include <pthread.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+
 
 #define TCP_PORT 554
 #define DESCRIBE_BUFFER_SIZE 1024
@@ -49,9 +47,15 @@
 #define FINGERPRINT 0x8028
 #define FINGERPRINT_LENGTH 0x0004
 #define STUN_CRC_XOR 0x5354554eUL
+#define DTLS_FINGERPRINT_MAX_SIZE 25
 #define BUFSIZE 4600
 #define NAMEDPIPE_NAME "/tmp/PipeOne"
 
+struct dtls_fingerprint
+{
+    unsigned char digest_fingerprint[DTLS_FINGERPRINT_MAX_SIZE];
+    unsigned int size;
+};
 struct pthread_arguments
 {
     struct sockaddr_in sddr; /// Struct for create tcp socket for requests camera
@@ -60,10 +64,6 @@ struct pthread_arguments
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
-    char answer_to_engine[1024];
-    char from_tag[11];
-    char to_tag[11];
-    char call_id[11];
     unsigned int port_ice; /// Port for rtpengine in sdp camera
     unsigned int port_camera; /// Port for receive stream from camera
     unsigned int port_ice_browser;
@@ -83,8 +83,18 @@ struct pthread_arguments
     unsigned short size_sps;
     unsigned char pps[10];
     unsigned short size_pps;
+    struct dtls_fingerprint attr_fingerprint;
     pthread_t tchild; /// Identificator thread
+    X509* x509;
+    EVP_PKEY* pkey;
+    BIGNUM *exponent;
+    BIGNUM* serial_number;
+	RSA *rsa;
+	ASN1_INTEGER *asn1_serial_number;
+	X509_NAME *name;
 };
+
+
 
 struct header {
     uint16_t msg_type;
@@ -122,18 +132,63 @@ struct fingerprint {
     struct tlv t;
     uint32_t crc;
 };
+/** Connection on stream
+*
+*
+*
+*/
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
+/** Option into camera
+*
+*
+*
+*/
 int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
+/* Describe into camera
+*
+*
+*
+*/
 int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
+/* Setup into camera
+*
+*
+*
+*/
 int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port, char* session, unsigned int& port_udp);
+/* Play into camera
+*
+*
+*
+*/
 int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session);
+/* Teardown into camera
+*
+*
+*
+*/
 int teardown_to_camera(int sockfd, char* host, char* session);
+/** Create server's ice candidate for browser
+*
+*
+*
+*/
 void create_ice(struct pthread_arguments* p_a);
+/** Parsing sdp from camera and create sdp for browser
+*
+*
+*
+*/
 int sdpParse(struct pthread_arguments* p_a);
+/** Parsing ice candidate from browser
+*
+*
+*
+*/
 void iceParse(struct pthread_arguments* p_a);
 void pwdParse(struct pthread_arguments* p_a);
 void* udp_stream(void* arg);
-int generationSTUN(char* ip_server, char*ip_browser, unsigned int ice_port_browser, unsigned int ice_port_server, char* name, char* pwd);
+int generationSTUN(struct pthread_arguments* p_a);
 void setUSERNAME(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* name);
 void setHeader(struct header* h, struct iovec* iov, char* d_r, unsigned int& index);
 void setICE_CONTROLLING(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
@@ -141,8 +196,6 @@ void setPRIORITY(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned in
 void setUSE_CANDIDATE(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
 void integrity(struct message_integrity* mi, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* pwd);
 void Fingerprint(struct fingerprint* f, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
-int sendSDP_rtpengine(struct pthread_arguments* p_a);
-void generationSDP_BROWSER(struct pthread_arguments* p_a, char* buf);
 unsigned int rtp_parse(char* rtp, unsigned char* rtp_sps, unsigned int* sequnce, unsigned int* sequnce_origin, struct pthread_arguments* p_a);
 unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, struct pthread_arguments* p_a);
 void send_delete(struct pthread_arguments* p_a);
@@ -184,8 +237,6 @@ static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
 static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-cost 999";
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";
-static char relay_candidate_1[] = "candidate:749832538 1 udp 25108223 ";
-static char relay_candidate_2[] = " 60840 typ relay raddr 127.0.0.1 rport 34793 generation 0 network-id 1 network-cost 10";
 
 static unsigned int port_ice_start = 53532;
 static unsigned int port_camera_start = 43700;
@@ -195,4 +246,3 @@ static bool other_user = false;
 static bool ice_step = false;
 static bool sdp_step = false;
 static bool flag_sps_send = false;
-#endif
