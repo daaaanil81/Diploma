@@ -1,15 +1,25 @@
-//
-//  base64 encoding and decoding with C++.
-//  Version: 1.01.00
-//
+    /***********************************************************
+    * Base64 library                                           *
+    * @author Ahmed Elzoughby                                  *
+    * @date July 23, 2017                                      *
+    * Purpose: encode and decode base64 format                 *
+    ***********************************************************/
 
-#ifndef BASE64_H_C0CE2A47_D10E_42C9_A27C_C883944E704A
-#define BASE64_H_C0CE2A47_D10E_42C9_A27C_C883944E704A
+#include <stdlib.h>
+#include <memory.h>
 
-#include <string>
-#include <iostream>
 
-std::string base64_encode(unsigned char const* , unsigned int len);
-std::string base64_decode(std::string const& s);
+/***********************************************
+Encodes ASCCI string into base64 format string
+@param plain ASCII string to be encoded
+@return encoded base64 format string
+***********************************************/
+char* base64_encode(char* plain);
 
-#endif /* BASE64_H_C0CE2A47_D10E_42C9_A27C_C883944E704A */
+
+/***********************************************
+decodes base64 format string into ASCCI string
+@param plain encoded base64 format string
+@return ASCII string to be encoded
+***********************************************/
+int base64_decode(char* cipher, char* out);

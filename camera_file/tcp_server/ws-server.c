@@ -144,8 +144,8 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 printf("Create Threads SDP\n");
                 generationSTUN(arg_pthread);
-                dtls_fingerprint_free(arg_pthread);
-                free(arg_pthread);
+                stun_request(arg_pthread);
+                free_all(arg_pthread);
                 /*printf("Send answer: \n");
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
@@ -170,8 +170,8 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 printf("Create Threads ICE\n");
                 generationSTUN(arg_pthread);
-                dtls_fingerprint_free(arg_pthread);
-                free(arg_pthread);
+                stun_request(arg_pthread);
+                free_all(arg_pthread);
                 //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
                 /*
                 printf("Send answer: \n");

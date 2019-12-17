@@ -64,12 +64,11 @@ struct pthread_arguments
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
-    unsigned int port_ice; /// Port for rtpengine in sdp camera
+    unsigned int port_ice; /// Port for browser in sdp camera
     unsigned int port_camera; /// Port for receive stream from camera
-    unsigned int port_ice_browser;
-    unsigned int port_from_rtpengine;
-    unsigned int port_to_rtpengine;
-    unsigned int port_udp_camera;
+    unsigned int port_udp_camera; 
+    int socket_stream;
+    unsigned int port_ice_browser; /// Port received from browser in candidate
     char ice_browser[300]; /// Ice candidate from browser
     char ice_server[300]; /// ICe candidate from server
     char session[20]; /// Number session in setup from camera
@@ -196,9 +195,9 @@ void setPRIORITY(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned in
 void setUSE_CANDIDATE(struct tlv* attr_tlv, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
 void integrity(struct message_integrity* mi, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index, char* pwd);
 void Fingerprint(struct fingerprint* f, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
+void free_all(struct pthread_arguments* p_a);
 unsigned int rtp_parse(char* rtp, unsigned char* rtp_sps, unsigned int* sequnce, unsigned int* sequnce_origin, struct pthread_arguments* p_a);
 unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, struct pthread_arguments* p_a);
-void send_delete(struct pthread_arguments* p_a);
 void gen_random(char *s, const int len);
 struct argumenst_for_camera {
     unsigned int port_ice;

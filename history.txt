@@ -1,0 +1,465 @@
+    1  cd libwebsockets/
+    2  ls
+    3  cd build/
+    4  ls
+    5  sudo make install
+    6  sudo passwd root
+    7  cd Diploma/
+    8  ls
+    9  cd ..
+   10  git clone 
+   11  git clone https://github.com/warmcat/libwebsockets.git
+   12  cd libwebsockets/
+   13  ls
+   14  ./config
+   15  mkdir build
+   16  cd build/
+   17  cmake ..
+   18  sudo apt-get install cmake
+   19  cmake ..
+   20  make && sudo make install
+   21  cd ..
+   22  libwebsockets --version
+   23  libwebsockets -v
+   24  ./libwebsockets -v
+   25  ./libwebsockets --version
+   26  cd Diploma/
+   27  cd camera_file/
+   28  ls
+   29  sudo apt-get install nodejs
+   30  ls
+   31  node ./js/http_server.js 
+   32  node ./js/http_server.js 10.168.166.132
+   33  ./rtpengine --interface=10.168.166.132 --listen-ng=127.0.0.1:2223 --port-min=12301 --port-max=14999 -f -E
+   34  cd rtpengine/daemon/
+   35  ./rtpengine --interface=10.168.166.132 --listen-ng=127.0.0.1:2223 --port-min=12301 --port-max=14999 -f -E
+   36  ls
+   37  ifconfig 
+   38  ls
+   39  uname -a
+   40  pwd
+   41  sudo apt-get install git
+   42  su
+   43  ls -l
+   44  git clone https://github.com/daaaanil81/Diploma.git
+   45  ls
+   46  cd Diploma/
+   47  ls
+   48  cd ..
+   49  ls
+   50  git https://github.com/sipwise/rtpengine.git
+   51  git clone https://github.com/sipwise/rtpengine.git
+   52  ls
+   53  cd rtpengine/
+   54  ls
+   55  vim Makefile 
+   56  cd daemon/
+   57  ls
+   58  vim Makefile 
+   59  make 
+   60  sudo apt-get install make
+   61  sudo apt-get install make-guile
+   62  sudo apt-get update
+   63  sudo apt-get upgrade
+   64  make 
+   65  make -j4
+   66  ls
+   67  c d..
+   68  cd ..
+   69  make -j4
+   70  sudo apt-get install pkg-config
+   71  make clean
+   72  sudo apt-get install libssl-dev
+   73  make clean
+   74  make -j4
+   75  sudo apt-get install libglib2.0-dev
+   76  ді
+   77  make -j4
+   78  sudo apt-get install libpcap0.8-dev
+   79  make -j4
+   80  sudo apt-get install libhiredis-dev
+   81  make -j4
+   82  cd ..
+   83  git clone 
+   84  git clone https://github.com/syntheticpp/CMakeLua.git
+   85  cd Cm
+   86  cd CMakeLua/
+   87  ./bootstrap 
+   88  sudo apt-get install libxmlrpc-core-c3-dev
+   89  cd ..
+   90  rm -rf CMakeLua/
+   91  cd rtpengine/
+   92  make -j4
+   93  sudo apt-get install libevent-dev
+   94  make -j4
+   95  sudo apt-get install libjson-glib-dev
+   96  make -j4
+   97  sudo apt-get install libspandsp-dev
+   98  make -j4
+   99  sudo apt-get install libcurl3 -y
+  100  make -j4
+  101  sudo apt-get install libcurl4 libcurl4-openssl-dev -y
+  102  make -j4
+  103  make clean
+  104  sudo apt-get install libavutil-dev
+  105  make clean
+  106  make clear
+  107  cd daemon/
+  108  make 
+  109  make clear
+  110  sudo apt-get install libxmlrpc-core-c3-dev
+  111  make clear
+  112  make -j3
+  113  make -j4
+  114  cd ..
+  115  rm -rf rtpengine/
+  116  git clone -b mr8.0.1 --single-branch https://github.com/sipwise/rtpengine.git
+  117  cd rtpengine/
+  118  git branch
+  119  make -j4
+  120  sudo apt-get install libswresample-dev
+  121  l
+  122  ls
+  123  make -j4
+  124  make cleanr
+  125  make clear
+  126  sudo apt-get install ffmpeg
+  127  make -j4
+  128  sudo apt-get install libavcodec 
+  129  make -j4
+  130  sudo apt-get install libavcodec 
+  131  sudo apt-get install -y libavcodec-extra57
+  132  make -j4
+  133  sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+  134  sudo apt-get install ffmpeg
+  135  make -j4
+  136  sudo apt-get install libavcodec-dev
+  137  make -j4
+  138  sudo apt-get install libavformat53 libavformat-dev libavcodec53
+  139  sudo apt install make gcc pkg-config meson
+  140  sudo apt-get install ibavformat-dev libavutil-dev
+  141  sudo apt-get install libavformat-dev libavutil-dev
+  142  make -j4
+  143  sudo apt install libiptc0 libiptc-dev sudo apt-get install mysql-client
+  144  make -j4
+  145  sudo apt install mqsql
+  146  sudo apt install mysql
+  147  sudo apt-get install mysql-client
+  148  sudo apt-get install mysql-server
+  149  make -j4
+  150  pt-get install libmysqlclient-dev 
+  151  sudo apt-get install libmysqlclient-dev 
+  152  make -j4
+  153  make clear
+  154  make clean
+  155  sudo apt-get install libavfilter-devsudo apt-get install libavfilter-dev
+  156  sudo apt-get install libavfilter-dev
+  157  make -j4
+  158  ls
+  159  cd debian/
+  160  ls
+  161  cd ..
+  162  cd daemon/
+  163  ls
+  164  make clean 
+  165  ls
+  166  cd ..
+  167  make clear
+  168  make clean
+  169  ls
+  170  cd daemon/
+  171  ls
+  172  make -j4
+  173  ls
+  174  make
+  175  ls
+  176  sudo apt-get install perl
+  177  sudo apt-get install perl5
+  178  sudo apt-get update
+  179  sudo apt-get upgrad
+  180  sudo apt-get upgrade
+  181  ls
+  182  make 
+  183  sudo apt-get install -y gperf
+  184  make 
+  185  make clear
+  186  make clean
+  187  make 
+  188  ls
+  189  cd ..
+  190  ls
+  191  cd Diploma/p
+  192  ls
+  193  cd Diploma/
+  194  ls
+  195  cd camera_file/
+  196  ls
+  197  make compile
+  198  ./tcp_server/ws-server 10.168.166.132
+  199  cd /usr/local/include/
+  200  ln -s ../opt/openssl/include/openssl .
+  201  sudo ln -s ../opt/openssl/include/openssl .
+  202  export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/opt/openssl/lib/
+  203  cd ~/Diploma/camera_file/
+  204  ./tcp_server/ws-server 10.168.166.132
+  205  echo LD_LIBRARY_PATH
+  206  echo $LD_LIBRARY_PATH
+  207  ls
+  208  export $LD_LIBRARY_PATH+=/usr/local/lib64
+  209  export LD_LIBRARY_PATH+=/usr/local/lib64
+  210  echo $LD_LIBRARY_PATH
+  211  ./tcp_server/ws-server 10.168.166.132
+  212  grep -R so /
+  213  grep -R libwebsockets  /
+  214  grep -R libwebsockets.so  /
+  215  ./tcp_server/ws-server 10.168.166.132
+  216  ls
+  217  cd ..
+  218  l
+  219  scd libwebsockets/
+  220  cd ..
+  221  cd 
+  222  rm -rf libwebsockets/
+  223  git clone -b v3.2-stable https://github.com/warmcat/libwebsockets.git
+  224  git branch
+  225  cd libwebsockets/
+  226  git branch
+  227  mkdir build 
+  228  cd build
+  229  cd ../..
+  230  git clone https://github.com/microsoft/vcpkg.git
+  231  cd libwebsockets/
+  232  cd build/
+  233  cmake .. -DLIB_SUFFIX=64
+  234  make 
+  235  sudo make install
+  236  cd ~/Diploma/camera_file/
+  237  ./tcp_server/ws-server 
+  238  ./tcp_server/ws-server 10.168.166.132
+  239  make compile
+  240  ./tcp_server/ws-server 10.168.166.132
+  241  make compile
+  242  ./tcp_server/ws-server 10.168.166.132
+  243  cd Diploma/camera_file/
+  244  ls
+  245  cd rtpengine/
+  246  cd daemon/
+  247  grep "#include <openssl/x509.h>"
+  248  grep -R "obj_alloc0" ./
+  249  cd ..
+  250  grep -R "obj_alloc0" ./
+  251  vim include/obj.h 
+  252  cd Diploma/camera_file/
+  253  sudo apt-get install libglib2.0-dev
+  254  make compile
+  255  sudo apt-get install libglib2.0-dev
+  256  pkg-config --cflags --libs glib-2.0
+  257  make compile
+  258  cd /usr/
+  259  ls
+  260  cd local/
+  261  ls
+  262  cd include/
+  263  ls
+  264  cd ..
+  265  sl
+  266  ls
+  267  cd ..
+  268  ls
+  269  cd include/
+  270  ls
+  271  sudo apt-get install libglib-dev
+  272  cd ..
+  273  ls
+  274  cd lib/
+  275  ls
+  276  x86_64
+  277  cd x86_64-linux-gnu/
+  278  ls
+  279  sudo cp /usr/lib/x86_64-linux-gnu/glib-2.0/include/glibconfig.h /usr/include/glib-2.0/glibconfig.h
+  280  cd 
+  281  cd DIp
+  282  cd Diploma/camera_file/
+  283  cd Diploma/camera_file/
+  284  make compile
+  285  cd libwebsockets/
+  286  grep -R "Using SSL mode" ./
+  287  grep -R -n "Using SSL mode" ./
+  288  vim lib/tls/tls-server.c 
+  289  grep -R -n "lws_create_context: simulating udp" ./
+  290  grep -R -n "simulating udp" ./
+  291  grep -R -n "lws_create_context" ./
+  292  grep -R -n "simulating udp" ./
+  293  grep -R -n "simulating udp loss" ./
+  294  grep -R -n "loss" ./
+  295  cd build/
+  296  cmake .. -DLIB_SUFFIX=64
+  297  history 
+  298  make
+  299  make compile
+  300  make install
+  301  sudo make compile
+  302  sudo make install
+  303  cd 
+  304  cd Diploma/camera_file/
+  305  exti
+  306  git clone https://github.com/doxygen/doxygen.git
+  307  cd doxygen/
+  308  ls
+  309  mkdir build
+  310  cd build/
+  311  cmake -G "Unix Makefiles" ..
+  312  ls
+  313  cmake  ..
+  314  ls
+  315  vim /home/daaaanil81/doxygen/build/CMakeFiles/CMakeOutput.log
+  316  sudo apt0get install g++
+  317  sudo apt-get install g++
+  318  cmake -G "Unix Makefiles" ..
+  319  sudo apt-get install flex
+  320  sudo apt-get install bison
+  321  cmake -G "Unix Makefiles" ..
+  322  make 
+  323  ls
+  324  cd libwebsockets/
+  325  rm -rf 
+  326  cd ..
+  327  ls
+  328  rm -rf libwebsockets/
+  329  ls
+  330  history 
+  331  git clone -b v3.1-stable https://github.com/warmcat/libwebsockets.git
+  332  cd libwebsockets/
+  333  mkdir build 
+  334  cd build/
+  335  cmake .. -DLIB_SUFFIX=64
+  336  make 
+  337  make install 
+  338  sudo make install 
+  339  cmake .. -DLIB_SUFFIX=64
+  340  make install 
+  341  make 
+  342  make install 
+  343  cmake .. -DLIB_SUFFIX=64
+  344  make 
+  345  sudo make install 
+  346  udo ldconfig
+  347  sudo ldconfig
+  348  make install 
+  349  sudo ldconfig
+  350  sudo make install 
+  351  sudo make install | grep libwebsockets.so 
+  352  cd ..
+  353  cd Diploma/camea
+  354  cd Diploma/camera_file/
+  355  ls
+  356  ./tcp_server/./ws-server 10.168.166.132
+  357  cd Diploma/
+  358  cd camera
+  359  cd camera_file/
+  360  make compile
+  361  ./tcp_server/ws-server 10.168.166.132
+  362  make compile
+  363  ./tcp_server/ws-server 10.168.166.132
+  364  ifconfig
+  365  ./tcp_server/ws-server 10.168.166.132
+  366  make compile
+  367  ./tcp_server/ws-server 10.168.166.132
+  368  make compile
+  369  ./tcp_server/ws-server 10.168.166.132
+  370  make compile
+  371  ./tcp_server/ws-server 10.168.166.132
+  372  make compile
+  373  ./tcp_server/ws-server 10.168.166.132
+  374  make compile
+  375  ./tcp_server/ws-server 10.168.166.132
+  376  nstat
+  377  sudo netstat
+  378  sudo lsof -i
+  379  ./tcp_server/ws-server 10.168.166.132
+  380  sudo lsof -i
+  381  ./tcp_server/ws-server 10.168.166.132
+  382  make compile
+  383  ./tcp_server/ws-server 10.168.166.132
+  384  make compile
+  385  ./tcp_server/ws-server 10.168.166.132
+  386  make compile
+  387  ./tcp_server/ws-server 10.168.166.132
+  388  sudo ldconfig
+  389  ./tcp_server/ws-server 10.168.166.132
+  390  sudo ldconfig
+  391  make compile
+  392  ./tcp_server/ws-server 10.168.166.132
+  393  make compile
+  394  ./tcp_server/ws-server 10.168.166.132
+  395  make compile
+  396  ./tcp_server/ws-server 10.168.166.132
+  397  ls
+  398  cd /usr/
+  399  ls
+  400  cd cd include/
+  401  ls
+  402  cd include/
+  403  ls
+  404  cd ..
+  405  ls
+  406  cd lib/
+  407  ls
+  408  cd ..
+  409  ls
+  410  cd local/
+  411  ls
+  412  sudo ln -s /usr/local/lib64/libwebsockets.so.14   /usr/lib64/libwebsockets.so.14
+  413  sudo ln -s /usr/local/lib64/libwebsockets.so.14 /usr/lib64/libwebsockets.so.14
+  414  sudo ln -s /usr/local/lib64/libwebsockets.so.14 /usr/lib64/
+  415  sudo ln -s /usr/local/lib64/libwebsockets.so.14 /usr/lib/l
+  416  sudo ln -s /usr/local/lib64/libwebsockets.so.14 /usr/lib/libwebsockets.so.14
+  417  ls /usr//lib/
+  418  cd ..
+  419  ls
+  420  cd ..
+  421  ls
+  422  cd 
+  423  cd Diploma/
+  424  cd cape
+  425  cd camea
+  426  cd camera_file/
+  427  node ./js/http_server.js 
+  428  node ./js/http_server.js 10.168.166.132
+  429  top
+  430  exit
+  431  ls
+  432  cd Diploma/
+  433  cd camera
+  434  cd camera_file/
+  435  ./tcp_server/./ws-server 10.168.166.132
+  436  make compile
+  437  ./tcp_server/./ws-server 10.168.166.132
+  438  make compile
+  439  ./tcp_server/./ws-server 10.168.166.132
+  440  cd Diploma/camera_file/
+  441  make compile
+  442  cd Diploma/camera_file/
+  443  make compile
+  444  node ./js/http_server.js 10.168.166.132
+  445  ls -l
+  446  ls
+  447  cd Diploma/
+  448  ls
+  449  cd camera_file/
+  450  ls
+  451  vim tcp_server/ws-server.c 
+  452  cd ..
+  453  git add .
+  454  git status
+  455  git commit -m "Add change"
+  456  git config --global user.email "daaaanil81@gmail.com"
+  457  git config --global user.name "daaaanil81"
+  458  git commit -m "Add change"
+  459  git push
+  460  cd camera_file/
+  461  make compile
+  462  ls
+  463  cd Diploma/
+  464  history 
+  465  history > history.txt

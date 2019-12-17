@@ -1,5 +1,6 @@
 #include "dtls.h"
-#include "../Base64/base64.h" 
+#include "base64.h" 
+#include "stun.h"
 #include <time.h>
 void gen_random(char *s, const int len) 
 {
@@ -407,4 +408,9 @@ unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, 
     }
     return index;
  }
- 
+void free_all(struct pthread_arguments* p_a)
+{
+    close(p_a->socket_stream);
+    dtls_fingerprint_free(p_a);
+    free(p_a);
+}
