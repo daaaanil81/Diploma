@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+#include "dtls.h"
+#include "base64.h" 
+#include "stun.h"
+>>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
 #include <time.h>
 #include "h264_camera.h"
 
@@ -453,6 +459,7 @@ unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, 
  }
 void free_all(struct pthread_arguments* p_a)
 {
+<<<<<<< HEAD
     list[p_a->index] = false;
     close(p_a->socket_stream);
     close(p_a->camerafd);
@@ -460,4 +467,9 @@ void free_all(struct pthread_arguments* p_a)
     dtls_fingerprint_free(p_a);
     free(p_a);
     printf("Free\n");
+=======
+    close(p_a->socket_stream);
+    dtls_fingerprint_free(p_a);
+    free(p_a);
+>>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
 }
