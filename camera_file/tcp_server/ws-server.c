@@ -323,7 +323,6 @@ void sigint_handler(int sig)
 {
     printf("Int\n");
     interrupted = 1;
-    close_program = true;
     if(busy == true)
     {
         free_all(arg_pthread);
@@ -334,7 +333,6 @@ void handler_sigsegv(int signum)
 {
     printf("My Segmentation fault\n");
     interrupted = 1;
-    close_program = true;
     if(busy == true)
     {
         free_all(arg_pthread);

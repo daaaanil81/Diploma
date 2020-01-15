@@ -293,7 +293,7 @@ int create_ice(struct pthread_arguments* p_a)
         perror("Send failed");
         return 1;
     }
-s    n = recv(p_a->socket_stream, buf, sizeof(buf), 0);
+    n = recv(p_a->socket_stream, buf, sizeof(buf), 0);
     if (n < 0)
     {
         perror("Recv failed");
@@ -453,7 +453,6 @@ unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, 
  }
 void free_all(struct pthread_arguments* p_a)
 {
-<<<<<<< HEAD
     list[p_a->index] = false;
     close(p_a->socket_stream);
     close(p_a->camerafd);
@@ -461,9 +460,4 @@ void free_all(struct pthread_arguments* p_a)
     dtls_fingerprint_free(p_a);
     free(p_a);
     printf("Free\n");
-=======
-    close(p_a->socket_stream);
-    dtls_fingerprint_free(p_a);
-    free(p_a);
->>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
 }

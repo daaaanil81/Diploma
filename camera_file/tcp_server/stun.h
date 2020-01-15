@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #ifndef _STUN_
 #define _STUN_
 #include "pthread_arguments.h"
@@ -68,11 +67,5 @@ int stun_xor_mapped(struct msghdr *mh, struct xor_mapped_address *x_m_a, unsigne
 
 
 #endif
-=======
-#include "h264_camera.h"
-#include <zlib.h>
-int stun_request(struct pthread_arguments* p_a);
-unsigned int stun_header(struct msghdr *mh, struct iovec* iov, struct header* hdr, unsigned char* buf, unsigned int size);
->>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
 
 
