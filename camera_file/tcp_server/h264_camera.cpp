@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-=======
-#include "dtls.h"
-#include "base64.h" 
-#include "stun.h"
->>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
 #include <time.h>
 #include "h264_camera.h"
 
@@ -299,7 +293,7 @@ int create_ice(struct pthread_arguments* p_a)
         perror("Send failed");
         return 1;
     }
-    n = recv(p_a->socket_stream, buf, sizeof(buf), 0);
+s    n = recv(p_a->socket_stream, buf, sizeof(buf), 0);
     if (n < 0)
     {
         perror("Recv failed");

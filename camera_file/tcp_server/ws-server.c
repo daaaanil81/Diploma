@@ -187,7 +187,6 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             if (ice_step && sdp_step) /// was finished all step
             {
                 printf("Create Threads SDP\n");
-<<<<<<< HEAD
                 strcpy(arg_pthread->ip_server, ip_server_program);
                 if (create_ice(arg_pthread) != 0)
                 {
@@ -217,12 +216,6 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     break;
                 }
                 printf("Send answer: \n");
-=======
-                generationSTUN(arg_pthread);
-                stun_request(arg_pthread);
-                free_all(arg_pthread);
-                /*printf("Send answer: \n");
->>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer) + strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
@@ -261,7 +254,6 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             if (ice_step && sdp_step)
             {
                 printf("Create Threads ICE\n");
-<<<<<<< HEAD
                 strcpy(arg_pthread->ip_server, ip_server_program);
                 if (create_ice(arg_pthread) != 0)
                 {
@@ -282,13 +274,6 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Error with sdp parse"), LWS_WRITE_TEXT);
                     break;
                 }
-=======
-                generationSTUN(arg_pthread);
-                stun_request(arg_pthread);
-                free_all(arg_pthread);
-                //printf("Offer: \n\n%s\n", arg_pthread->sdp_offer);
-                /*
->>>>>>> b21222ae0d64a15732cb38342a33f405512c52b0
                 printf("Send answer: \n");
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_sdp, arg_pthread->sdp_answer);
