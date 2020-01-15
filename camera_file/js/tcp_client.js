@@ -1,5 +1,7 @@
+
 const remoteVideo = document.getElementById('remoteVideo');
-//const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+const configuration = {iceServers: [{urls: 'stun:stun.l.google.com:19302'}]};
+
 var localConnection;
 var localDescription;
 var remoteDescription;
@@ -9,15 +11,29 @@ var remoteStream;
 var sizeIce = 0;
 var flagSDP = true;
 var inboundStream = null;
+var candidate_result = null;
 var options = {
     offerToReceiveAudio: false,
     offerToReceiveVideo: true
 };
+var flag_ICE = true;
 //#####################################################################################################################
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
+console.log("Hello");
 //#####################################################################################################################
-var connection = new WebSocket('wss://10.168.166.132:8666', 'lws-minimal'); // tcp server on c/c++
+var connection = new WebSocket('wss://10.168.0.235:9999', 'lws-minimal'); // tcp server on c/c++
+if(!connection)
+{
+    console.log("Error with connection");
+    connection = new WebSocket('wss://petrov.in.ua:9999', 'lws-minimal'); // tcp server on c/c++
+    flag_ICE = false;
+}
+if(!connection)
+{
+    console.log("Error with connection");
+    document.getElementById("status").innerText = "Error with connection";
+}
 connection.onopen = function () {
     console.log("Send");
     //
@@ -36,7 +52,7 @@ connection.onmessage = function (event) {
     }
     if (event.data === 'OK') {
         console.log(event.data);
-        localConnection = new RTCPeerConnection(null);
+        localConnection = new RTCPeerConnection(configuration);
         /*localConnection.onaddstream = function(event) {
             remoteVideo.srcObject = event.stream;
             remoteStream = event.stream;
@@ -51,7 +67,7 @@ connection.onmessage = function (event) {
 
     if (event.data === 'Busy') {
         console.log("Busy");
-        //setTimeout(sendConnect, 3000);
+        setTimeout(sendConnect, 3000);
     }
     var Type = event.data.substr(0, 3);
     if (Type === 'SDP') {
@@ -71,17 +87,29 @@ connection.onmessage = function (event) {
     }
     if (Type === 'Err') {
         console.log(event.data);
+        document.getElementById("status").innerText = event.data;
     }
 };
 function sendIceCandidate(event) {
     if (event.candidate) {
         console.log("Candidate: " + event.candidate.candidate);
-    }
-    if (event.candidate && sizeIce <= 0) {
-        localIce = event.candidate;
-        console.log("Send local ice candidate");
-        connection.send('ICE' + localIce.candidate);
-        sizeIce++;
+        var array = event.candidate.candidate.split(' ');
+        var ip_address = array[4];
+        if(sizeIce <= 0)
+        {
+            if(ip_address.substr(0, 6) == '10.168' && flag_ICE)
+            {
+                candidate_result = event.candidate.candidate;
+                connection.send('ICE' + event.candidate.candidate);
+                sizeIce++;  
+            }
+            if(ip_address.substr(0, 6) != '10.168' && !flag_ICE)
+            {
+                candidate_result = event.candidate.candidate;
+                connection.send('ICE' + event.candidate.candidate);
+                sizeIce++;
+            }
+        }
     }
 }
 

@@ -1,15 +1,6 @@
-#include "dtls.h"
-#include "../Base64/base64.h" 
 #include <time.h>
-void gen_random(char *s, const int len) 
-{
-    srand(time(0)); 
-    static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    for (int i = 0; i < len; ++i) {
-        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-    }
-    s[len] = 0;
-}
+#include "h264_camera.h"
+
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host)
 {
     camerafd = socket(AF_INET, SOCK_STREAM, 0);
@@ -207,7 +198,8 @@ int sdpParse(struct pthread_arguments* p_a)
         printf("%02X ", p_a->pps[j]);
     }
     printf("\n");
-    strcpy(p_a->pwd_server, "YdvF780e9vG5SNCtkAur1ShFEj");
+    strcpy(p_a->pwd_server.s, "YdvF780e9vG5SNCtkAur1ShFEj");
+    p_a->pwd_server.len = strlen("YdvF780e9vG5SNCtkAur1ShFEj");
 
     sprintf(p_a->sdp_answer, "%s %s 2 IN IP4 127.0.0.1\r\n", version, sess_version);
     strcat(p_a->sdp_answer, "s=Daniil Team\r\n");
@@ -241,7 +233,7 @@ int sdpParse(struct pthread_arguments* p_a)
     strncat(p_a->sdp_answer, fingerprint, time - fingerprint);
     sprintf(attribute_uflag, "a=ice-ufrag:%s\r\n", p_a->uflag_server);
     strcat(p_a->sdp_answer, attribute_uflag);
-    sprintf(attribute_pwd, "a=ice-pwd:%s\r\n", p_a->pwd_server);
+    sprintf(attribute_pwd, "a=ice-pwd:%s\r\n", p_a->pwd_server.s);
     strcat(p_a->sdp_answer, attribute_pwd);
     strcat(p_a->sdp_answer, "a=ice-options:trickle\r\n");
     printf("FINGERPRINT: \n%s\n", fingerprint); 
@@ -249,23 +241,74 @@ int sdpParse(struct pthread_arguments* p_a)
         printf("%s\n", p_a->sdp_answer);
     return 0;
 }
-void create_ice(struct pthread_arguments* p_a)
+int create_ice(struct pthread_arguments* p_a)
 {
     char hostname[50];
     char *IPbuffer;
-    struct hostent *host_entry;
-    gethostname(hostname, sizeof(hostname));
-    printf("%s\n", hostname);
-    host_entry = gethostbyname(hostname);
-    IPbuffer = inet_ntoa(*((struct in_addr*)
-                           host_entry->h_addr_list[0]));
-    printf("%s\n", IPbuffer);
-    memset((char*)p_a->ip_server, 0, sizeof(p_a->ip_server));
+    unsigned char buf[50] = {0};
+    size_t i = 0;
+    int sockfd;
+    struct sockaddr_in servaddr; 
+    printf("Ip: %s\n", p_a->ip_server);
     strcpy(p_a->uflag_server, "sEMT");
-    strcpy((char*)p_a->ip_server, "10.168.166.132");
-    sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, IPbuffer, p_a->port_ice, ice_candidate_second);
+    /// 74.125.134.127 stun google
+
+
+    if ((p_a->socket_stream = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed");  
+        return 1;
+    }
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&p_a->stun_from_server, 0, sizeof(p_a->stun_from_server)); 
+
+    servaddr.sin_family = AF_INET; // IPv4 
+    inet_aton("74.125.134.127", &servaddr.sin_addr);
+    servaddr.sin_port = htons(19302); 
+
+    p_a->stun_from_server.sin_family = AF_INET; // IPv4 
+    p_a->stun_from_server.sin_port = htons(p_a->port_ice); 
+    p_a->stun_from_server.sin_addr.s_addr = INADDR_ANY; 
+
+    if (bind(p_a->socket_stream, (struct sockaddr *)&p_a->stun_from_server, sizeof(p_a->stun_from_server)) < 0 ) 
+    { 
+        perror("bind failed"); 
+        return 1;
+    } 
+    buf[i++] = 0x00;
+    buf[i++] = 0x01;
+    buf[i++] = 0x00;
+    buf[i++] = 0x00;
+    buf[i++] = (MAGICK & 0xFF000000) >> (8 * 3);
+    buf[i++] = (MAGICK & 0xFF0000) >> (8 * 2);
+    buf[i++] = (MAGICK & 0xFF00) >> (8 * 1);
+    buf[i++] = (MAGICK & 0xFF);
+
+    int rndfd;
+    rndfd = open("/dev/urandom", 0);
+    read(rndfd, (unsigned char *)(buf + i), 12);
+    close(rndfd);
+    int n = sendto(p_a->socket_stream, (char *)buf, 20, 0, (struct sockaddr *)&servaddr, sizeof(servaddr)); 
+    if (n < 0)
+    {
+        perror("Send failed");
+        return 1;
+    }
+    n = recv(p_a->socket_stream, buf, sizeof(buf), 0);
+    if (n < 0)
+    {
+        perror("Recv failed");
+        return 1;
+    }
+
+    unsigned int crc_port = ((unsigned char)buf[27] ^ 0x12) | (((unsigned char)buf[26] ^ 0x21) << 8);
+    if (strncmp(p_a->ip_browser, "10.168", strlen("10.168")) != 0)
+    {
+        sprintf(p_a->ip_server, "%d.%d.%d.%d", buf[28]^0x21, buf[29]^0x12, buf[30]^0xA4, buf[31]^0x42);
+    } 
+    sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, p_a->ip_server, p_a->port_ice, ice_candidate_second);
     if(DEBUG)
         printf("%s\n", p_a->ice_server);
+    return 0;
 }
 void iceParse(struct pthread_arguments* p_a)//candidate:2182926537 1 udp 2113937151 10.168.191.246 56429 typ host generation 0 ufrag 2uGL network-cost 999
 {
@@ -294,7 +337,7 @@ void iceParse(struct pthread_arguments* p_a)//candidate:2182926537 1 udp 2113937
     t1 += 6;
     t2 = strstr(t1, " ");
     strncpy(p_a->uflag_browser, t1, t2 - t1);
-    p_a->uflag_browser[t2-t1] = '\0';
+    p_a->uflag_browser[t2 - t1] = '\0';
     printf("Host: %s\nPort: %d\nUfrag: %s\n\n", p_a->ip_browser, p_a->port_ice_browser, p_a->uflag_browser);
 }
 void pwdParse(struct pthread_arguments* p_a)
@@ -302,13 +345,14 @@ void pwdParse(struct pthread_arguments* p_a)
     char* t1 = NULL;
     char* t2;
     int i = 0;
-    memset(p_a->pwd_browser, 0, sizeof(p_a->pwd_browser));
+    memset(p_a->pwd_browser.s, 0, sizeof(p_a->pwd_browser.s));
     t1 = strstr(p_a->sdp_offer, "a=ice-pwd:");
     t1 += 10;
 
     t2 = strstr(t1, "\r\n");
-    strncpy(p_a->pwd_browser, t1, t2-t1);
-    printf("PWD: \n%s\n", p_a->pwd_browser);
+    strncpy(p_a->pwd_browser.s, t1, t2-t1);
+    p_a->pwd_browser.len = t2 - t1;
+    printf("PWD: \n+++%s+++\n", p_a->pwd_browser.s);
 }
 int generationSTUN(struct pthread_arguments* p_a)
 {
@@ -407,4 +451,13 @@ unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, 
     }
     return index;
  }
- 
+void free_all(struct pthread_arguments* p_a)
+{
+    list[p_a->index] = false;
+    close(p_a->socket_stream);
+    close(p_a->camerafd);
+    dtls_connection_cleanup(&p_a->dtls_cert);
+    dtls_fingerprint_free(p_a);
+    free(p_a);
+    printf("Free\n");
+}

@@ -61,11 +61,15 @@ struct pthread_arguments
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
     char answer_to_engine[1024];
+    char from_tag[11];
+    char to_tag[11];
+    char call_id[11];
     unsigned int port_ice; /// Port for rtpengine in sdp camera
     unsigned int port_camera; /// Port for receive stream from camera
     unsigned int port_ice_browser;
     unsigned int port_from_rtpengine;
     unsigned int port_to_rtpengine;
+    unsigned int port_udp_camera;
     char ice_browser[300]; /// Ice candidate from browser
     char ice_server[300]; /// ICe candidate from server
     char session[20]; /// Number session in setup from camera
@@ -75,6 +79,10 @@ struct pthread_arguments
     char ip_browser[20]; ///Host browser
     char pwd_browser[30]; ///PWD from browser in sdp description
     char pwd_server[30]; ///PWD from server
+    unsigned char sps[30];
+    unsigned short size_sps;
+    unsigned char pps[10];
+    unsigned short size_pps;
     pthread_t tchild; /// Identificator thread
 };
 
@@ -117,7 +125,7 @@ struct fingerprint {
 int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
 int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
-int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port, char* session);
+int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port, char* session, unsigned int& port_udp);
 int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session);
 int teardown_to_camera(int sockfd, char* host, char* session);
 void create_ice(struct pthread_arguments* p_a);
@@ -135,7 +143,10 @@ void integrity(struct message_integrity* mi, struct iovec* iov, char* d_r, unsig
 void Fingerprint(struct fingerprint* f, struct iovec* iov, char* d_r, unsigned int& last, unsigned int& index);
 int sendSDP_rtpengine(struct pthread_arguments* p_a);
 void generationSDP_BROWSER(struct pthread_arguments* p_a, char* buf);
-
+unsigned int rtp_parse(char* rtp, unsigned char* rtp_sps, unsigned int* sequnce, unsigned int* sequnce_origin, struct pthread_arguments* p_a);
+unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, struct pthread_arguments* p_a);
+void send_delete(struct pthread_arguments* p_a);
+void gen_random(char *s, const int len);
 struct argumenst_for_camera {
     unsigned int port_ice;
     unsigned int port_camera;
@@ -149,8 +160,11 @@ struct stun_message {
     uint32_t id[3];
     unsigned char data[256];
 };
-
-
+struct sequnce_number_stream
+{
+    unsigned int sequnce;
+    unsigned int sequnce_origin;
+};
 
 static struct argumenst_for_camera afc[SIZE_CAMERA];
 static char option_camera_first[] = "OPTIONS rtsp://";
@@ -180,4 +194,5 @@ static bool busy = false;
 static bool other_user = false;
 static bool ice_step = false;
 static bool sdp_step = false;
+static bool flag_sps_send = false;
 #endif

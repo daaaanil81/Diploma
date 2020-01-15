@@ -1,128 +1,65 @@
-#include "Base64.h"
-size_t b64_encoded_size(size_t inlen)
-{
-	size_t ret;
 
-	ret = inlen;
-	if (inlen % 3 != 0)
-		ret += 3 - (inlen % 3);
-	ret /= 3;
-	ret *= 4;
+#include "base64.h"
 
-	return ret;
+char base46_map[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                     'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+                     'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                     'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+
+
+size_t base64_encode(char* in, char* out) {
+
+    char counts = 0;
+    char buffer[3];
+    //char* out = (char*)malloc(strlen(in) * 4 / 3 + 4);
+
+    size_t i = 0, c = 0;
+    for(i = 0; in[i] != '\0'; i++) {
+        buffer[counts++] = in[i];
+        if(counts == 3) {
+            out[c++] = base46_map[buffer[0] >> 2];
+            out[c++] = base46_map[((buffer[0] & 0x03) << 4) + (buffer[1] >> 4)];
+            out[c++] = base46_map[((buffer[1] & 0x0f) << 2) + (buffer[2] >> 6)];
+            out[c++] = base46_map[buffer[2] & 0x3f];
+            counts = 0;
+        }
+    }
+
+    if(counts > 0) {
+        out[c++] = base46_map[buffer[0] >> 2];
+        if(counts == 1) {
+            out[c++] = base46_map[(buffer[0] & 0x03) << 4];
+            out[c++] = '=';
+        } else {                      // if counts == 2
+            out[c++] = base46_map[((buffer[0] & 0x03) << 4) + (buffer[1] >> 4)];
+            out[c++] = base46_map[(buffer[1] & 0x0f) << 2];
+        }
+        out[c++] = '=';
+    }
+
+    out[c] = '\0';   /* string padding character */
+    return c;
 }
-char *b64_encode(const unsigned char *in, size_t len)
-{
-	char   *out;
-	size_t  elen;
-	size_t  i;
-	size_t  j;
-	size_t  v;
 
-	if (in == NULL || len == 0)
-		return NULL;
 
-	elen = b64_encoded_size(len);
-	out  = (char*)malloc(elen+1);
-	out[elen] = '\0';
+size_t base64_decode(char* in, char* out) {
 
-	for (i=0, j=0; i<len; i+=3, j+=4) {
-		v = in[i];
-		v = i+1 < len ? v << 8 | in[i+1] : v << 8;
-		v = i+2 < len ? v << 8 | in[i+2] : v << 8;
-
-		out[j]   = b64chars[(v >> 18) & 0x3F];
-		out[j+1] = b64chars[(v >> 12) & 0x3F];
-		if (i+1 < len) {
-			out[j+2] = b64chars[(v >> 6) & 0x3F];
-		} else {
-			out[j+2] = '=';
-		}
-		if (i+2 < len) {
-			out[j+3] = b64chars[v & 0x3F];
-		} else {
-			out[j+3] = '=';
-		}
-	}
-
-	return out;
-}
-size_t b64_decoded_size(const char *in)
-{
-	size_t len;
-	size_t ret;
-	size_t i;
-
-	if (in == NULL)
-		return 0;
-
-	len = strlen(in);
-	ret = len / 4 * 3;
-
-	for (i=len; i-->0; ) {
-		if (in[i] == '=') {
-			ret--;
-		} else {
-			break;
-		}
-	}
-
-	return ret;
-}
-void b64_generate_decode_table()
-{
-	int    inv[80];
-	size_t i;
-
-	memset(inv, -1, sizeof(inv));
-	for (i=0; i<sizeof(b64chars)-1; i++) {
-		inv[b64chars[i]-43] = i;
-	}
-}
-int b64_isvalidchar(char c)
-{
-	if (c >= '0' && c <= '9')
-		return 1;
-	if (c >= 'A' && c <= 'Z')
-		return 1;
-	if (c >= 'a' && c <= 'z')
-		return 1;
-	if (c == '+' || c == '/' || c == '=')
-		return 1;
-	return 0;
-}
-int b64_decode(const char *in, unsigned char *out, size_t outlen)
-{
-	size_t len;
-	size_t i;
-	size_t j;
-	int    v;
-
-	if (in == NULL || out == NULL)
-		return 0;
-
-	len = strlen(in);
-	if (outlen < b64_decoded_size(in) || len % 4 != 0)
-		return 0;
-
-	for (i=0; i<len; i++) {
-		if (!b64_isvalidchar(in[i])) {
-			return 0;
-		}
-	}
-
-	for (i=0, j=0; i<len; i+=4, j+=3) {
-		v = b64invs[in[i]-43];
-		v = (v << 6) | b64invs[in[i+1]-43];
-		v = in[i+2]=='=' ? v << 6 : (v << 6) | b64invs[in[i+2]-43];
-		v = in[i+3]=='=' ? v << 6 : (v << 6) | b64invs[in[i+3]-43];
-
-		out[j] = (v >> 16) & 0xFF;
-		if (in[i+2] != '=')
-			out[j+1] = (v >> 8) & 0xFF;
-		if (in[i+3] != '=')
-			out[j+2] = v & 0xFF;
-	}
-
-	return 1;
+    char counts = 0;
+    char buffer[4];
+    size_t i = 0, p = 0;
+    for(i = 0; in[i] != '\0'; i++) {
+        char k;
+        for(k = 0 ; k < 64 && base46_map[k] != in[i]; k++);
+        buffer[counts++] = k;
+        if(counts == 4) {
+            out[p++] = (buffer[0] << 2) + (buffer[1] >> 4);
+            if(buffer[2] != 64)
+                out[p++] = (buffer[1] << 4) + (buffer[2] >> 2);
+            if(buffer[3] != 64)
+                out[p++] = (buffer[2] << 6) + buffer[3];
+            counts = 0;
+        }
+    }
+    out[p] = '\0';    /* string padding character */
+    return p;
 }
