@@ -4,7 +4,7 @@
 static int interrupted;
 static int index_arr;
 unsigned char buf[4450] = {0};
-char timing[4300] = {0};
+static bool flag_teardown = true;
 static struct pthread_arguments *arg_pthread = NULL; /// Arguments for settings connection
 static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
@@ -12,20 +12,143 @@ static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void
 }
 void* udp_stream(void* arg)
 {
-    printf("Udp stream create.\n");
+    //FILE* fptr = fopen("STREAM.txt", "rb");
+    unsigned char dtls_answers[1024] = {0};
+    unsigned char mes[1500] = {0};
+    int len;
+    struct sockaddr_in servaddr;
+    struct sockaddr_in stun_to_browser;
+    struct pollfd fds[2];
+    unsigned int i = 0;
+    int fd_count = 0;
     struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
+    rtp_init(p_a);
     if (dtls_connection_init(p_a) < 0)
     {
-        printf("Dtls_connection init: error\n");
+        printf("%s:%d:Dtls_connection init: error\n", __func__, __LINE__);
         goto done;
     }
-    if (dtls(p_a) <= 0)
+    if (dtls(p_a, NULL, 0) <= 0)
     {
-        printf("Dtls: error\n");
+        printf("%s:%d:Dtls: error\n", __func__, __LINE__);
         goto done;
     }
+    len = readDTLS(p_a->socket_stream, dtls_answers);
+    if (len < 0)
+    {
+        printf("%s:%d:ReadDtls: error\n", __func__, __LINE__);
+        goto done;
+    }
+    if (dtls(p_a, dtls_answers, len) <= 0)
+    {
+        printf("%s:%d:Dtls: error\n", __func__, __LINE__);
+        goto done;
+    }
+    memset(dtls_answers, 0, DTLS_MESSAGES);
+    len = readDTLS(p_a->socket_stream, dtls_answers);
+    if (len < 0)
+    {
+        printf("%s:%d:ReadDtls: error\n", __func__, __LINE__);
+        goto done;
+    }
+    if (dtls(p_a, dtls_answers, len) <= 0)
+    {
+        printf("%s:%d:Dtls: error\n", __func__, __LINE__);
+        goto done;
+    }
+    if ( play_to_camera(p_a->sddr, p_a->camerafd, p_a->ip_camera, p_a->session) != 0)
+    {
+        printf("%s:%d:play_to_camera\n", __func__, __LINE__);
+        goto done;
+    }
+    flag_teardown = false;
+    printf("Was send play on camera\n");
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET; // IPv4
+    servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_port = htons(p_a->port_camera); // port = 43700
+
+    memset(&stun_to_browser, 0, sizeof(stun_to_browser)); 
+    stun_to_browser.sin_family = AF_INET; // IPv4
+    inet_aton(p_a->ip_browser, &stun_to_browser.sin_addr); /// Address browser
+    stun_to_browser.sin_port = htons(p_a->port_ice_browser); /// Port browser 
+
+    if ((p_a->socket_rtp_fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+    {
+        perror("socket udp");
+        return 0;
+    }
+    if (bind(p_a->socket_rtp_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+    {
+        perror("bind failed rtp");
+        return 0;
+    }    
+    /* First struct with descriptor for rtp from camera */
+    fds[0].fd = p_a->socket_rtp_fd;
+    fds[0].events = POLLIN;
+    /* Second struct with descriptor for connection with browser(stun,srtp,srtcp) */
+    fds[1].fd = p_a->socket_stream;
+    fds[1].events = POLLIN;
+    fd_count = 2;
+    while(1)
+    {
+        if (poll(fds, fd_count, 1) < 0)
+        {
+            perror("Poll");
+            return 0;
+        }
+        if(fds[0].revents & POLLIN != 0)
+        {
+            int l = recv(p_a->socket_rtp_fd, mes, 1500, 0);
+            unsigned short protocol = 0;
+            switch(protocol)
+            {
+                case :
+                    break;
+                case :
+                    break;
+                case 0:
+                    break;
+            }
+        }
+        if(fds[1].revents & POLLIN != 0)
+        {
+
+        }
+        unsigned char rtp_sps[210] = {0};
+        int l = recv(p_a->socket_rtp_fd, mes, 1500, 0);
+        //fread(&l, sizeof(int), 1, fptr);
+        //fread(mes, 1, l, fptr);
+        printf("Was recv: %d\n", l);
+        //printf("Recv: %d\n", l);
+        int sps_size = 0;
+        sps_size = rtp_to_srtp(p_a, mes, rtp_sps, &l);
+        if(sps_size != 0)
+        {
+            sps_size = sendto(p_a->socket_stream, (char *)rtp_sps, sps_size, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser)); 
+            printf("SPS size: %d\n", sps_size);
+        }
+        if(sps_size == -1)
+            break;
+	    l = sendto(p_a->socket_stream, (char *)mes, l, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser)); 
+        if(l == -1)
+            break;
+        printf("Was send: %d\n", l);
+        i++;
+    }
+    //fclose(fptr);
+
 done:
-    return 0;   
+    printf("DONE\n");
+    if(!flag_teardown)
+        teardown_to_camera(p_a->camerafd, p_a->ip_camera, p_a->session);
+    if(p_a->socket_rtp_fd >= 0)
+    {
+        close(p_a->socket_rtp_fd);
+        p_a->socket_rtp_fd = -1;
+    }
+    flag_teardown = true;
+    return 0; 
 }
 static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
@@ -224,7 +347,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server) + strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
-                if (stun_response(arg_pthread) != 0)
+                if (stun_response(arg_pthread, NULL) != 0)
                 {
                     printf("Error with stun response\n");
                     busy = false;
@@ -240,9 +363,11 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     free_all(arg_pthread);
                 }
                 pthread_join(tchilds[arg_pthread->index], 0);
-                free_all(arg_pthread);      
+                if(busy)
+                    free_all(arg_pthread);      
                 //pthread_detach(tchilds[arg_pthread->index]);
                 busy = false;
+                printf("After join\n");
             }
         }
         if (strncmp((char *)buf, "ICE", strlen("ICE")) == 0)
@@ -255,6 +380,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             {
                 printf("Create Threads ICE\n");
                 strcpy(arg_pthread->ip_server, ip_server_program);
+                printf("Before create ice\n");
                 if (create_ice(arg_pthread) != 0)
                 {
                     printf("Error with create ice\n");
@@ -264,7 +390,17 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Error with create ice"), LWS_WRITE_TEXT);
                     break;
                 }
-                stun_request(arg_pthread);
+                printf("Before stun\n");
+                if (stun_request(arg_pthread) != 0)
+                {
+                    printf("Error with stun request\n");
+                    busy = false;
+                    free_all(arg_pthread);
+                    memcpy((char *)buf + LWS_PRE, "Error with stun request", strlen("Error with stun request")); /// Send OK, camera with status "Work"
+                    lws_write(wsi, &buf[LWS_PRE], strlen("Error with stun request"), LWS_WRITE_TEXT);
+                    break;
+                }
+                printf("Before sdpParse\n");
                 if (sdpParse(arg_pthread) < 0)
                 {
                     printf("Error with sdp parse\n");
@@ -298,9 +434,11 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     free_all(arg_pthread);
                 }
                 pthread_join(tchilds[arg_pthread->index], 0);
-                free_all(arg_pthread);
+                if(busy)
+                    free_all(arg_pthread);
                 //pthread_detach(tchilds[arg_pthread->index]);
                 busy = false;
+                printf("After join\n");
             }
         }
         break;
@@ -325,7 +463,14 @@ void sigint_handler(int sig)
     interrupted = 1;
     if(busy == true)
     {
+        if(!flag_teardown)
+        {
+            teardown_to_camera(arg_pthread->camerafd, arg_pthread->ip_camera, arg_pthread->session);
+            flag_teardown = true;
+        }
         free_all(arg_pthread);
+        busy = false;
+        exit(1);
         //free(arg_pthread);
     }
 }
@@ -336,6 +481,7 @@ void handler_sigsegv(int signum)
     if(busy == true)
     {
         free_all(arg_pthread);
+        busy = false;
         //free(arg_pthread);
     }
     exit(1);

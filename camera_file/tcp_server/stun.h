@@ -53,7 +53,8 @@ struct xor_mapped_address {
 	u_int32_t address[4];
 };
 int stun_request(struct pthread_arguments* p_a);
-int stun_response(struct pthread_arguments *p_a);
+int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req);
+
 
 unsigned int stun_header(struct msghdr *mh, struct iovec* iov, struct header* hdr, unsigned char* buf, unsigned int* index, unsigned char* transaction);
 unsigned int stun_software(struct msghdr *mh, struct software* sw, unsigned char* buf, unsigned int* index);

@@ -55,6 +55,7 @@
 #define STUN_CRC_XOR 0x5354554eUL
 #define SOFTWARE 0x8022
 #define DTLS_FINGERPRINT_MAX_SIZE 25
+#define DTLS_MESSAGES 1024
 #define BUFSIZE 4600
 #define NAMEDPIPE_NAME "/tmp/PipeOne"
 
@@ -63,12 +64,14 @@
 #define SRTP_MAX_SESSION_KEY_LEN 32
 #define SRTP_MAX_SESSION_SALT_LEN 14
 #define SRTP_MAX_SESSION_AUTH_LEN 20
-struct str
-{
+struct str {
     size_t len;
     char s[30];
 };
-
+struct str_key {
+    unsigned char* str;
+    unsigned int len;
+};
 struct dtls_connection {
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
@@ -97,12 +100,12 @@ struct crypto_context {
 	char session_salt[SRTP_MAX_SESSION_SALT_LEN]; /* k_s */
 	char session_auth_key[SRTP_MAX_SESSION_AUTH_LEN];
 	void *session_key_ctx[2];
-	int have_session_key:1;
+	int have_session_key;
 };
 
-typedef int (*crypto_func_rtp)(struct crypto_context *, unsigned char* buf);
-typedef int (*crypto_func_rtcp)(struct crypto_context *, unsigned char* buf);
-typedef int (*hash_func_rtp)(struct crypto_context *, unsigned char* buf);
+typedef int (*crypto_func_rtp)(struct crypto_context *, struct str_key *payload, uint32_t ssrc, uint64_t index);
+typedef int (*crypto_func_rtcp)(struct crypto_context *, unsigned char* buf, uint32_t ssrc, uint64_t index);
+typedef int (*hash_func_rtp)(struct crypto_context *, unsigned char *payload, struct str_key* in, uint64_t index);
 typedef int (*hash_func_rtcp)(struct crypto_context *, unsigned char* buf);
 typedef int (*session_key_init_func)(struct crypto_context *);
 typedef int (*session_key_cleanup_func)(struct crypto_context *);
@@ -139,13 +142,13 @@ struct crypto_suite {
 	unsigned int idx; // filled in during crypto_init_main()
 };
 
-
 struct pthread_arguments
 {
     struct sockaddr_in sddr; /// Struct for create tcp socket for requests camera
     struct sockaddr_in stun_from_server; /// Struct for create udp socket for request to google stun server
     char ip_camera[20]; /// Ip address camera's
     int camerafd; /// Identificator for request on request
+	int socket_rtp_fd;
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
@@ -177,9 +180,14 @@ struct pthread_arguments
 	RSA *rsa;
 	ASN1_INTEGER *asn1_serial_number;
 	X509_NAME *name;
-    short index;
+    uint64_t index;
+	uint32_t sequnce_origin;
+	uint32_t sequnce_new;
 };
 void gen_random(unsigned char *s, const int len);
 static char ip_server_program[16];
+void printText(unsigned char* text, unsigned int len);
+static unsigned int master_key[] = {0x99,0xe1,0x3f,0x5f,0x45,0x95,0x1c,0x6f,0x5a,0x87,0xd3,0x05,0xea,0x84,0x2b,0xa5};
+static unsigned int master_salt[] = {0x7d,0x9e,0x1e,0xdf,0xaa,0xda,0xba,0xa1,0x0f,0xfb,0x08,0xad,0xf2,0x7f};
 
 #endif

@@ -10,36 +10,50 @@ var remoteIce;
 var remoteStream;
 var sizeIce = 0;
 var flagSDP = true;
-var inboundStream = null;
 var candidate_result = null;
 var options = {
     offerToReceiveAudio: false,
     offerToReceiveVideo: true
 };
 var flag_ICE = true;
+var flag_Connection = false;
 //#####################################################################################################################
 const host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 console.log("Hello");
 //#####################################################################################################################
 var connection = new WebSocket('wss://10.168.0.235:9999', 'lws-minimal'); // tcp server on c/c++
-if(!connection)
-{
-    console.log("Error with connection");
-    connection = new WebSocket('wss://petrov.in.ua:9999', 'lws-minimal'); // tcp server on c/c++
-    flag_ICE = false;
-}
-if(!connection)
-{
-    console.log("Error with connection");
-    document.getElementById("status").innerText = "Error with connection";
-}
+console.log("Connection...");
+// console.log("Socket connection timeout", connection.readyState);
+// if(!connection.readyState)
+// {
+//     console.log("Error with connection");
+//     connection = new WebSocket('wss://petrov.in.ua:9999', 'lws-minimal'); // tcp server on c/c++
+// } 
+// if(!flag_Connection)
+// {
+//     console.log("Error with connection");
+//     connection = new WebSocket('wss://petrov.in.ua:9999', 'lws-minimal'); // tcp server on c/c++
+//     flag_ICE = false;
+//     flag_Connection = true;
+// }
+// if(!flag_Connection)
+// {
+//     console.log("Error with connection");
+//     document.getElementById("status").innerText = "Error with connection";
+// }
+
 connection.onopen = function () {
     console.log("Send");
-    //
+    flag_Connection = true;
+    clearTimeout(timerId);
 };
+
 connection.onclose = function (event) {
-    localConnection.close();
+    if(localConnection != null)
+    { 
+        localConnection.close();
+    }
     localConnection = null;
     console.log("Close");
 };
@@ -125,7 +139,6 @@ function gotRemoteStream(e) {
       remoteVideo.srcObject = e.streams[0];
       console.log('pc2 received remote stream');
     }
-    remoteVideo.play();
     //remoteVideo.autoplay = true;
   }
 

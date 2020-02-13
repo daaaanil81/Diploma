@@ -362,7 +362,7 @@ int stun_xor_mapped(struct msghdr *mh, struct xor_mapped_address *x_m_a, unsigne
     *index = i;
     return time;
 }
-int stun_response(struct pthread_arguments *p_a)
+int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req)
 {
     struct header hdr;
     struct msghdr mh;
@@ -379,7 +379,10 @@ int stun_response(struct pthread_arguments *p_a)
     struct sockaddr_in stun_to_browser;
     int size_sockaddr_in = sizeof(stun_to_browser);
     int answer = 0;
-
+    if(stun_req != NULL)
+    {
+        
+    }
     answer = recvfrom(p_a->socket_stream, stun_request, sizeof(stun_request), 0, (struct sockaddr *)&stun_to_browser, (socklen_t*)&size_sockaddr_in);
     strcpy((char* )ip, inet_ntoa(stun_to_browser.sin_addr));
     port = ntohs(stun_to_browser.sin_port);
@@ -406,17 +409,18 @@ int stun_response(struct pthread_arguments *p_a)
     mh.msg_name = &stun_to_browser;
     mh.msg_namelen = sizeof(struct sockaddr_in);
     
-    if (sendmsg(p_a->socket_stream, &mh, 0) < 0)
-    {
-        perror("Sendmsg failed");
-        return -1;
-    }
+    // if (sendmsg(p_a->socket_stream, &mh, 0) < 0)
+    // {
+    //     perror("Sendmsg failed");
+    //     return -1;
+    // }
     sendto(p_a->socket_stream, stun_response, size_stun_message, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser));
     return 0;    
 }
 int stun_request(struct pthread_arguments *p_a)
 {
     struct msghdr mh;
+    struct msghdr mhdr;
     struct iovec iov[10];
     struct header hdr;
     struct software sw;
@@ -445,20 +449,27 @@ int stun_request(struct pthread_arguments *p_a)
     size_stun_message += stun_priority(&mh, &pr, stun_request, &i);
     size_stun_message += stun_integrity(&mh, &m_i, &p_a->pwd_browser, stun_request, &i);
     size_stun_message += stun_fingerprint(&mh, &fp, stun_request, &i);
-    sendto(p_a->socket_stream, stun_request, size_stun_message, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser));
+    int response = sendto(p_a->socket_stream, stun_request, size_stun_message, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser));
+    printf("Sendto ----> %d\n", response);
+    if(response <= 0)
+    {
+        perror("Sendto failed");
+        return 1;
+    } 
     int answer = recvfrom(p_a->socket_stream, stun_answer, sizeof(stun_answer), 0, NULL, 0);
     if(answer <= 0)
     {
         perror("Recvfrom failed");
         return 1;
     } 
+    
     /*
     mh.msg_name = &stun_to_browser;
     mh.msg_namelen = sizeof(struct sockaddr_in);
     mhdr.msg_name = &stun_to_browser;
     mhdr.msg_namelen = sizeof(struct sockaddr_in);
-    */
-    /*if (sendmsg(p_a->socket_stream, &mh, 0) < 0)
+    
+    if (sendmsg(p_a->socket_stream, &mh, 0) < 0)
     {
         perror("Sendmsg failed");
         return -1;

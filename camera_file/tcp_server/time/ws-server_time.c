@@ -9,7 +9,7 @@ void *udp_stream(void *arg)
 {
     int socket_rtp;
     int socket_rtcp;
-
+    FILE* fptr = fopen("STREAM.txt", "rb");
     int socket_rtcp_to_rtpengine;
     int socket_rtp_to_rtpengine;
 
@@ -145,6 +145,8 @@ void *udp_stream(void *arg)
         {
             bzero(buf_rtp, sizeof(buf_rtp));
             n_rtp = recvfrom(socket_rtp, (char *)buf_rtp, sizeof(buf_rtp), 0, NULL, 0); //resvfrom stream from camera
+            fread(&n_rtp, sizeof(int), 1, fptr);
+            fread(buf_rtp, 1, n_rtp, fptr);
             unsigned char rtp_sps[200] = {0};
             unsigned int size_sps_packet;
             size_sps_packet = rtp_parse(buf_rtp, rtp_sps, &sequnce_number, &sequnce_number_origin, p_a);
@@ -173,14 +175,13 @@ void *udp_stream(void *arg)
             n_rtcp = sendto(socket_rtcp, buf_rtcp, n_rtcp, 0, (struct sockaddr *)&addr_rtcp_camera, sizeof(addr_rtcp_camera));
             printf("CAMERA<-RTCP<-RTPengine\n");
             printf("\n");
-
         }
         if (interrupted == 1)
         {
             break;
         }
     }
-    
+    fclose(fptr);
     //TEARDOWN to camera
     teardown_to_camera(p_a->camerafd, p_a->ip_camera, p_a->session);
     close(socket_rtp);
@@ -501,7 +502,7 @@ int main(int argc, const char **argv)
     lwsl_user("WebSocket security: http://10.168.191.245:8666\n");
     printf("Enter Ctrl + C for exit.\n");
     memset(&info, 0, sizeof info);
-    info.port = 8666;
+    info.port = 9999;
     info.mounts = NULL;
     info.protocols = protocols;
     info.vhost_name = argv[1]; //"10.168.191.245"; // argv[1]

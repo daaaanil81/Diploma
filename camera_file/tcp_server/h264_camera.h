@@ -4,6 +4,7 @@
 #include "dtls.h"
 #include "base64.h" 
 #include "stun.h"
+#include "rtp.h"
 
 
 /** Connection on stream
@@ -84,7 +85,6 @@ static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
 static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-cost 999";
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";
-//static char ip_server_program[16];
 static unsigned int port_ice_start = 53532;
 static unsigned int port_camera_start = 43700;
 static bool list[5] = {0};

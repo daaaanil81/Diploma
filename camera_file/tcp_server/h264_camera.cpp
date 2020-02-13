@@ -243,14 +243,14 @@ int sdpParse(struct pthread_arguments* p_a)
 }
 int create_ice(struct pthread_arguments* p_a)
 {
-    char hostname[50];
-    char *IPbuffer;
+    char hostname[20];
     unsigned char buf[50] = {0};
     size_t i = 0;
     int sockfd;
     struct sockaddr_in servaddr; 
     printf("Ip: %s\n", p_a->ip_server);
     strcpy(p_a->uflag_server, "sEMT");
+    strcpy(hostname, p_a->ip_server);
     /// 74.125.134.127 stun google
 
 
@@ -266,7 +266,7 @@ int create_ice(struct pthread_arguments* p_a)
     servaddr.sin_port = htons(19302); 
 
     p_a->stun_from_server.sin_family = AF_INET; // IPv4 
-    p_a->stun_from_server.sin_port = htons(p_a->port_ice); 
+    p_a->stun_from_server.sin_port = htons(p_a->port_ice); // 53532
     p_a->stun_from_server.sin_addr.s_addr = INADDR_ANY; 
 
     if (bind(p_a->socket_stream, (struct sockaddr *)&p_a->stun_from_server, sizeof(p_a->stun_from_server)) < 0 ) 
@@ -304,8 +304,12 @@ int create_ice(struct pthread_arguments* p_a)
     if (strncmp(p_a->ip_browser, "10.168", strlen("10.168")) != 0)
     {
         sprintf(p_a->ip_server, "%d.%d.%d.%d", buf[28]^0x21, buf[29]^0x12, buf[30]^0xA4, buf[31]^0x42);
-    } 
-    sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, p_a->ip_server, p_a->port_ice, ice_candidate_second);
+        sprintf(p_a->ice_server, "candidate:842163049 1 udp 1677729535 %s %d typ srflx raddr %s rport %d generation 0 ufrag sEMT network-cost 999", p_a->ip_server, crc_port, hostname, p_a->port_ice);
+    }
+    else
+    { 
+        sprintf(p_a->ice_server, "%s%s %d%s", ice_candidate_first, p_a->ip_server, p_a->port_ice, ice_candidate_second);
+    }
     if(DEBUG)
         printf("%s\n", p_a->ice_server);
     return 0;
@@ -454,8 +458,21 @@ unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, 
 void free_all(struct pthread_arguments* p_a)
 {
     list[p_a->index] = false;
-    close(p_a->socket_stream);
-    close(p_a->camerafd);
+    if(p_a->socket_rtp_fd >= 0)
+    {
+        close(p_a->socket_rtp_fd);
+        p_a->socket_rtp_fd = -1;
+    }
+    if(p_a->socket_stream >= 0)
+    {
+        close(p_a->socket_stream);
+        p_a->socket_stream = -1;
+    }
+    if(p_a->camerafd >= 0)
+    {
+        close(p_a->camerafd);
+        p_a->camerafd = -1;
+    }
     dtls_connection_cleanup(&p_a->dtls_cert);
     dtls_fingerprint_free(p_a);
     free(p_a);
