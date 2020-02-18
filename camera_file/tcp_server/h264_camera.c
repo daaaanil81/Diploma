@@ -1,51 +1,35 @@
 #include <time.h>
 #include "h264_camera.h"
 
-int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host)
+int connect_camera(struct sockaddr_in* saddr, int* camerafd, char* host)
 {
-    camerafd = socket(AF_INET, SOCK_STREAM, 0);
-    if(camerafd < 0)
-    {
-        printf("Error with socket to camera\n");
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(fd < 0)
         return 1;
-    }
-    else
-    {
-        printf("Camerafd = %d\n", camerafd);
-    }
-    bzero(&saddr, sizeof(saddr));
-    saddr.sin_family = AF_INET;
-    saddr.sin_port = htons(TCP_PORT);
+    bzero(saddr, sizeof(saddr));
+    saddr->sin_family = AF_INET;
+    saddr->sin_port = htons(TCP_PORT);
     printf("host = %s\n",host);
-    inet_aton(host, &saddr.sin_addr);
-    int res = connect(camerafd, (struct sockaddr* )&saddr, sizeof(saddr));
-    if(res != 0)
-    {
-        printf("Error with connect to camera\n");
-        perror("connect");
+    inet_aton(host, &saddr->sin_addr);
+    if(connect(fd, (struct sockaddr*)saddr, sizeof(struct sockaddr_in)) != 0)
         return 1;
-    }
-    printf("Connect to camera successful!\n");
+    *camerafd = fd;
     return 0;
 }
-int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host)
+int option_to_camera(int camerafd, char* host)
 {
     char option[REQUEST];
     char answer[OPTION_BUFFER_SIZE];
     sprintf(option, "%s%s%s", option_camera_first, host, option_camera_second);
     if(write(camerafd, option, strlen(option)) < 0)
-    {
         return 1;
-    }
     if(read(camerafd, answer, sizeof(answer)) < 0)
-    {
        return 1;
-    }
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
 }
-int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans) /// Description camera
+int describe_to_camera(int camerafd, char* host, char* ans) /// Description camera
 {
     char describe[REQUEST];
     char answer[DESCRIBE_BUFFER_SIZE];
@@ -63,7 +47,7 @@ int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, cha
         printf("%s\n", answer);
     return 0;
 }
-int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port_camera, char* session, unsigned int& port_udp)
+int setup_to_camera(int camerafd, char* host, unsigned int port_camera, char* session, unsigned int* port_udp)
 {
     char setup[REQUEST];
     char answer[SETUP_BUFFER_SIZE];
@@ -88,12 +72,12 @@ int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsign
     t1 += 12;
     t2 = strstr(t1, "-");
     strncpy(p, t1, t2 - t1);
-    port_udp = atoi(p) + 1;
+    *port_udp = atoi(p) + 1;
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
 }
-int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session)
+int play_to_camera(int camerafd, char* host, char* session)
 {
     char play[REQUEST];
     char answer[PLAY_BUFFER_SIZE];
@@ -101,13 +85,9 @@ int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* s
     char* t2;
     sprintf(play, "%s%s%s%s%s", play_camera_first, host, play_camera_second, session, play_camera_thirt);
     if(write(camerafd, play, strlen(play)) < 0)
-    {
         return 1;
-    }
     if(read(camerafd, answer, sizeof(answer)) < 0)
-    {
         return 1;
-    }
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
@@ -119,15 +99,9 @@ int teardown_to_camera(int sockfd, char* host, char* session)
 	printf("%s", teardown_text);
 	char buf[512] = {0};
 	if (send(sockfd, teardown_text, strlen(teardown_text), 0) < 0)
-	{
-		perror("Send teardown");
 		return 1;
-	}
 	if (recv(sockfd, buf, sizeof(buf), 0) < 0)
-	{
-		perror("Read teardown");
 		return 1;
-	}	
 	return 0;
 }
 
@@ -206,7 +180,7 @@ int sdpParse(struct pthread_arguments* p_a)
     sprintf(attribute_c, "c=IN IP4 %s\r\n", p_a->ip_server);
     strcat(p_a->sdp_answer, attribute_c);
     strcat(p_a->sdp_answer, "t=0 0\r\n");
-    sprintf(attribute_m, "m=video %d RTP/SAVPF 102\r\n", p_a->port_ice);
+    sprintf(attribute_m, "m=video %d RTP/SAVP 102\r\n", p_a->port_ice);
     strcat(p_a->sdp_answer, attribute_m);
     strcat(p_a->sdp_answer, "a=mid:0\r\n");
     strcat(p_a->sdp_answer, sdp_f);
@@ -358,103 +332,29 @@ void pwdParse(struct pthread_arguments* p_a)
     p_a->pwd_browser.len = t2 - t1;
     printf("PWD: \n+++%s+++\n", p_a->pwd_browser.s);
 }
-int generationSTUN(struct pthread_arguments* p_a)
+
+void setSockaddr(struct sockaddr_in* in, unsigned char* ip, unsigned int port)
 {
+    memset(in, 0, sizeof(struct sockaddr_in));
+    in->sin_family = AF_INET; // IPv4
+    if (ip != NULL)
+        inet_aton((const char* )ip, &in->sin_addr);   /// Address browser
+    else
+        in->sin_addr.s_addr = INADDR_ANY;
+    in->sin_port = htons(port);
+}
+
+int createSockaddr(struct sockaddr_in* in, unsigned char* ip, unsigned int port, int* socket_in)
+{   
+    int fd = 0;
+    setSockaddr(in, ip, port);
+    if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+        return 1;
+    if (bind(fd, (const struct sockaddr *)in, sizeof(struct sockaddr_in)) < 0)
+        return 1;
+    *socket_in = fd;
     return 0;
 }
-unsigned int rtp_parse(char* rtp, unsigned char* rtp_sps, unsigned int* sequnce, unsigned int* sequnce_origin, struct pthread_arguments* p_a)
-{
-	unsigned char v = (rtp[0] & 0xC0) >> 6;
-    unsigned char p = (rtp[0] & 0x20) >> 5;
-	unsigned char x = (rtp[0] & 0x10) >> 4;
-	unsigned char cc = (rtp[0] & 0x0F);
-	unsigned char m = (rtp[1] & 0x80) >> 7;
-	unsigned char payload_type = rtp[1] & 0x7F;
-    unsigned int seq_num = (rtp[2] & 0xFF) << 8 | (rtp[3] & 0xFF); // 1054i // 1055 // 1056 // 1057i // 1058
-    unsigned long timestamp = (rtp[4] & 0xFF) << 24 | (rtp[5] & 0xFF) << 16 | (rtp[6] & 0xFF) << 8 | (rtp[7] & 0xFF); 
-	unsigned long ssrc = (rtp[8] & 0xFF) << 24 | (rtp[9] & 0xFF) << 16 | (rtp[10]& 0xFF) << 8 | (rtp[11] & 0xFF);
-    unsigned short indicator_type = rtp[12] & 0x1F;
-    unsigned short header_type = rtp[13] & 0x1F;
-    unsigned short header_start = (rtp[13] & 0x80) >> 7;
-    unsigned int size_sps_packet = 0;
-    rtp[1] = (rtp[1] & 0x80) | 102;
-    payload_type = rtp[1] & 0x7F;
-    m = (rtp[1] & 0x80) >> 7;
-    if((*sequnce_origin) == 0)
-    {
-        (*sequnce_origin) = seq_num;
-    }
-    (*sequnce) = (*sequnce) + seq_num - (*sequnce_origin); // sequnce 1 + 1054 - 1054 = 1 // sequnce = 2 + 1055 - 1054 = 3 // sequnce = 3 + 1056 - 1055 = 4 //sequnce = 4 + 1057 - 1056 = 5
-    *sequnce = *sequnce % 0x01FFFF;
-    ////////////////////////////////////////////////////////////////////
-    if(indicator_type == 28 && header_type == 5 && header_start == 1) 
-    {   
-        size_sps_packet = rtp_sps_parse(rtp, rtp_sps, *sequnce, p_a); // sequnce = 1 // sequnce = 5
-        (*sequnce)++; // sequence = 2 // sequnce = 6
-    }
-    rtp[2] = ((*sequnce) & 0xFF00) >> 8; // sequnce = 2 //sequnce = 3 //sequnce = 4 //sequnce = 6 // sequnce = 7
-    rtp[3] = (*sequnce) & 0xFF; 
-    (*sequnce_origin) = seq_num; // sequnce_origin = 1054 //sequnce_origin = 1055 //sequnce_origin = 1056 
-    if (DEBUG)
-    {
-	    /* 0 byte */
-        printf("V = %u\n", v);
-	    printf("P = %u\n", p);
-	    printf("X = %u\n", x);
-	    printf("CC = %u\n", cc);
-        /* 1 byte */
-	    printf("M = %u\n", m);
-	    printf("Payload tupe = %u\n", payload_type);
-	    /* 2-3 bytes */
-        printf("Sequence number = %u\n", *sequnce);
-	    /* 4-7 bytes */
-        printf("Timestamp = %lu\n", timestamp);
-        /* 8-11 bytes */
-        printf("SSRC = %lu\n", ssrc);
-        /* 12-13 bytes */
-        if(indicator_type == 28 && header_type == 5 && header_start == 1)
-        {
-            printf("Type payload is FU\n");
-            printf("Type frame is IDR\n");
-            printf("This frame is start I-frame\n");
-        }
-    }
-    return size_sps_packet;
-}
-unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, struct pthread_arguments* p_a)
-{
-    //unsigned int seq_num = (rtp[2] & 0xFF) << 8 | (rtp[3] & 0xFF);
-    unsigned int seq_num = sequnce;
-    unsigned short index = 0;
-    unsigned char h = rtp[2];
-    unsigned char l = rtp[3];
-    for (int i = 0; i < 2; i++)
-    {
-        sps[index++] = rtp[i];
-    }
-    sps[index++] = seq_num >> 8;
-    sps[index++] = seq_num; 
-    for (int i = 0; i < 8; i++)
-    {
-        sps[index++] = rtp[i+4];     
-    }
-    sps[index++] = 56; // 0x38
-    sps[index++] = (p_a->size_sps) & 0xFF >> 8;
-    sps[index++] = (p_a->size_sps) & 0xFF;
-    //sps[index++] = 39; // 0x27 Nal header byte with sps payload
-    for (int i = 0; i < p_a->size_sps; i++)
-    {
-        sps[index++] = p_a->sps[i];
-    } 
-    sps[index++] = (p_a->size_pps) & 0xFF >> 8;
-    sps[index++] = (p_a->size_pps) & 0xFF;
-    //sps[index++] = 40; // 0x28 Nal header byte with pps payload
-    for (int i = 0; i < p_a->size_pps; i++)
-    {
-        sps[index++] = p_a->pps[i];
-    }
-    return index;
- }
 void free_all(struct pthread_arguments* p_a)
 {
     list[p_a->index] = false;

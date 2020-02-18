@@ -9,10 +9,7 @@ void gen_random(unsigned char *s, const int len)
 }
 void printText(unsigned char* text, unsigned int len)
 {
-
     for(size_t i = 0; i < len; i++)
-    {
         printf("%02x", text[i]);
-    }
     printf("\n");
 }

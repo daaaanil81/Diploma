@@ -9,6 +9,7 @@
 #include <openssl/err.h>
 #include <time.h>
 #include "pthread_arguments.h"
+#include "crypto.h"
 struct rtp_header {
     char all_mark[2];
     uint16_t seq_num;
@@ -16,14 +17,14 @@ struct rtp_header {
     uint32_t timestamp;
 };
 
-void rtp_init(struct pthread_arguments *p_a);
-int crypto_init_session_key(struct crypto_context* c);
-int crypto_encrypt_rtp(struct crypto_context *c, unsigned char* rtp);
-int crypto_encrypt_rtcp(struct crypto_context *c, unsigned char* rtcp);
-unsigned int rtp_payload(struct rtp_header *rtp, struct str_key *payload, uint32_t* sequnce_origin, uint32_t* sequnce_new, unsigned char *all_mess, int l);
-int crypto_gen_session_key(struct crypto_context *c, struct str_key* out, unsigned char label, int index_len);
-int crypto_hash_rtp(struct crypto_context *c, unsigned char *payload, struct str_key* to_tag, uint64_t index);
-int rtp_to_srtp(struct pthread_arguments *p_a, unsigned char *rtp, unsigned char* rtp_sps, int* l);
+void rtp_init(struct pthread_arguments *);
+int crypto_init_session_key_rtp(struct crypto_context* );
+int check_session_keys_rtp(struct crypto_context *c);
+int crypto_encrypt_rtp(struct crypto_context *, struct str_key *, uint32_t , uint64_t );
+unsigned int rtp_sps_parse(unsigned char *rtp, unsigned char *sps, unsigned int sequnce, struct pthread_arguments *p_a);
+unsigned int rtp_payload(struct rtp_header *, struct str_key *, uint32_t *, uint32_t *, unsigned char *, struct str_key *, struct pthread_arguments *, int );
+int crypto_hash_rtp(struct crypto_context *, unsigned char *, struct str_key *, uint64_t );
+int rtp_to_srtp(struct pthread_arguments *, unsigned char *, unsigned char* , int* );
 
 
 

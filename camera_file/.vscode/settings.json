@@ -1,6 +1,8 @@
 {
     "C_Cpp.errorSquiggles": "Disabled",
     "files.associations": {
-        "h264_camera.h": "c"
+        "h264_camera.h": "c",
+        "queue": "c",
+        "stack": "c"
     }
 }

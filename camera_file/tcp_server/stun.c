@@ -362,7 +362,7 @@ int stun_xor_mapped(struct msghdr *mh, struct xor_mapped_address *x_m_a, unsigne
     *index = i;
     return time;
 }
-int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req)
+int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req, unsigned int s, struct sockaddr_in* addr)
 {
     struct header hdr;
     struct msghdr mh;
@@ -381,20 +381,20 @@ int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req)
     int answer = 0;
     if(stun_req != NULL)
     {
-        
+        memcpy(stun_request, stun_req, s);
+        memcpy(&stun_to_browser, addr, size_sockaddr_in);
     }
-    answer = recvfrom(p_a->socket_stream, stun_request, sizeof(stun_request), 0, (struct sockaddr *)&stun_to_browser, (socklen_t*)&size_sockaddr_in);
+    else
+    {
+        answer = recvfrom(p_a->socket_stream, stun_request, sizeof(stun_request), 0, (struct sockaddr *)&stun_to_browser, (socklen_t*)&size_sockaddr_in);
+        if(answer <= 0)
+            return 1;
+    }
     strcpy((char* )ip, inet_ntoa(stun_to_browser.sin_addr));
     port = ntohs(stun_to_browser.sin_port);
     printf("Recv from %s:%d\n", ip, port);
-
-    if(answer <= 0)
-    {
-        perror("Recvfrom failed");
-        return 1;
-    } 
+    
     memcpy(transaction, stun_request + 8, 12); /// In header start from 8 index  
-
     unsigned int i = 0; /// Index for last change in buffer
     size_stun_message = stun_header(&mh, iov, &hdr, stun_response, &i, transaction);
     x_m_a.family = htons(0x0001);
@@ -414,7 +414,8 @@ int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req)
     //     perror("Sendmsg failed");
     //     return -1;
     // }
-    sendto(p_a->socket_stream, stun_response, size_stun_message, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser));
+    int k = sendto(p_a->socket_stream, stun_response, size_stun_message, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser));
+    printf("Size send stun: %d\n", k);
     return 0;    
 }
 int stun_request(struct pthread_arguments *p_a)

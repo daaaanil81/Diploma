@@ -52,17 +52,18 @@ struct xor_mapped_address {
 	u_int16_t port;
 	u_int32_t address[4];
 };
-int stun_request(struct pthread_arguments* p_a);
-int stun_response(struct pthread_arguments *p_a, unsigned char* stun_req);
+int stun_request(struct pthread_arguments* );
+int stun_response(struct pthread_arguments *, unsigned char* , unsigned int ,struct sockaddr_in* );
 
 
-unsigned int stun_header(struct msghdr *mh, struct iovec* iov, struct header* hdr, unsigned char* buf, unsigned int* index, unsigned char* transaction);
-unsigned int stun_software(struct msghdr *mh, struct software* sw, unsigned char* buf, unsigned int* index);
-unsigned int stun_username(struct msghdr *mh, struct username* user, unsigned char* buf, unsigned int* index, char* buf_name);
-unsigned int stun_controlled(struct msghdr *mh, struct ice_controlling *contr, unsigned char *buf, unsigned int *index);
-unsigned int stun_priority(struct msghdr *mh, struct priority *prior, unsigned char *buf, unsigned int *index);
-unsigned int stun_integrity(struct msghdr *mh, struct message_integrity *mi, str *browser_pwd, unsigned char *buf, unsigned int *index);
-int stun_xor_mapped(struct msghdr *mh, struct xor_mapped_address *x_m_a, unsigned char *buf, unsigned int *index);
+
+unsigned int stun_header(struct msghdr *, struct iovec* , struct header* , unsigned char* , unsigned int* , unsigned char* );
+unsigned int stun_software(struct msghdr *, struct software* , unsigned char* , unsigned int* );
+unsigned int stun_username(struct msghdr *, struct username *, unsigned char *, unsigned int *, char *, size_t );
+unsigned int stun_controlled(struct msghdr *, struct ice_controlling *, unsigned char *, unsigned int *);
+unsigned int stun_priority(struct msghdr *, struct priority *, unsigned char *, unsigned int *);
+unsigned int stun_integrity(struct msghdr *, struct message_integrity *, struct str *, unsigned char *, unsigned int *);
+int stun_xor_mapped(struct msghdr *, struct xor_mapped_address *, unsigned char *, unsigned int *);
 
 
 

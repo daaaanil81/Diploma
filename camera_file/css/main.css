@@ -4,8 +4,8 @@ body {
 
 video {
     max-width: 100%;
-    width: 320px;
-    height: 250px;
+    width: 640px;
+    height: 480px;
 }
 
 table {

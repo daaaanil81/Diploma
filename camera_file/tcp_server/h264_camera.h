@@ -5,6 +5,7 @@
 #include "base64.h" 
 #include "stun.h"
 #include "rtp.h"
+#include "rtcp.h"
 
 
 /** Connection on stream
@@ -12,60 +13,61 @@
 *
 *
 */
-int connect_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
+int connect_camera(struct sockaddr_in* , int* , char* );
 /** Option into camera
 *
 *
 *
 */
-int option_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host);
+int option_to_camera(int, char* );
 /* Describe into camera
 *
 *
 *
 */
-int describe_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* ans);
+int describe_to_camera(int, char* , char* );
 /* Setup into camera
 *
 *
 *
 */
-int setup_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, unsigned int port, char* session, unsigned int& port_udp);
+int setup_to_camera(int, char* , unsigned int , char* , unsigned int* );
 /* Play into camera
 *
 *
 *
 */
-int play_to_camera(struct sockaddr_in& saddr, int& camerafd, char* host, char* session);
+int play_to_camera(int, char* , char* );
 /* Teardown into camera
 *
 *
 *
 */
-int teardown_to_camera(int sockfd, char* host, char* session);
+int teardown_to_camera(int , char* , char* );
 /** Create server's ice candidate for browser
 *
 *
 *
 */
-int create_ice(struct pthread_arguments* p_a);
+int create_ice(struct pthread_arguments* );
 /** Parsing sdp from camera and create sdp for browser
 *
 *
 *
 */
-int sdpParse(struct pthread_arguments* p_a);
+int sdpParse(struct pthread_arguments* );
 /** Parsing ice candidate from browser
 *
 *
 *
 */
-void iceParse(struct pthread_arguments* p_a);
-void pwdParse(struct pthread_arguments* p_a);
-int generationSTUN(struct pthread_arguments* p_a);
-void free_all(struct pthread_arguments* p_a);
-unsigned int rtp_parse(char* rtp, unsigned char* rtp_sps, unsigned int* sequnce, unsigned int* sequnce_origin, struct pthread_arguments* p_a);
-unsigned int rtp_sps_parse(char* rtp, unsigned char* sps, unsigned int sequnce, struct pthread_arguments* p_a);
+void iceParse(struct pthread_arguments* );
+void pwdParse(struct pthread_arguments* );
+void free_all(struct pthread_arguments* );
+void setSockaddr(struct sockaddr_in* , unsigned char* , unsigned int t);
+int createSockaddr(struct sockaddr_in* , unsigned char*, unsigned int p, int* );
+
+
 
 
 static char option_camera_first[] = "OPTIONS rtsp://";
@@ -86,7 +88,7 @@ static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";
 static unsigned int port_ice_start = 53532;
-static unsigned int port_camera_start = 43700;
+static unsigned int port_camera_start = 43700; //rtcp = 43700
 static bool list[5] = {0};
 static pthread_t tchilds[5]; /// Identificator threads
 static bool busy = false;

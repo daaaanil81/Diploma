@@ -58,7 +58,7 @@
 #define DTLS_MESSAGES 1024
 #define BUFSIZE 4600
 #define NAMEDPIPE_NAME "/tmp/PipeOne"
-
+#define FLAG_TESTING 0 
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14
 #define SRTP_MAX_SESSION_KEY_LEN 32
@@ -96,6 +96,7 @@ struct crypto_params {
 
 struct crypto_context {
 	struct crypto_params params;
+	struct crypto_params server_params;
 	char session_key[SRTP_MAX_SESSION_KEY_LEN]; /* k_e */
 	char session_salt[SRTP_MAX_SESSION_SALT_LEN]; /* k_s */
 	char session_auth_key[SRTP_MAX_SESSION_AUTH_LEN];
@@ -103,10 +104,12 @@ struct crypto_context {
 	int have_session_key;
 };
 
-typedef int (*crypto_func_rtp)(struct crypto_context *, struct str_key *payload, uint32_t ssrc, uint64_t index);
-typedef int (*crypto_func_rtcp)(struct crypto_context *, unsigned char* buf, uint32_t ssrc, uint64_t index);
+typedef int (*crypto_func_rtp)(struct crypto_context *c, struct str_key *payload, uint32_t ssrc, uint64_t index);
+typedef int (*crypto_func_rtcp)(struct crypto_context *c, struct str_key *payload, uint32_t ssrc, uint64_t index);
+
 typedef int (*hash_func_rtp)(struct crypto_context *, unsigned char *payload, struct str_key* in, uint64_t index);
-typedef int (*hash_func_rtcp)(struct crypto_context *, unsigned char* buf);
+typedef int (*hash_func_rtcp)(struct crypto_context *, unsigned char *payload, struct str_key* in);
+
 typedef int (*session_key_init_func)(struct crypto_context *);
 typedef int (*session_key_cleanup_func)(struct crypto_context *);
 
@@ -148,13 +151,14 @@ struct pthread_arguments
     struct sockaddr_in stun_from_server; /// Struct for create udp socket for request to google stun server
     char ip_camera[20]; /// Ip address camera's
     int camerafd; /// Identificator for request on request
-	int socket_rtp_fd;
+	int socket_rtp_fd; /// Socket for  camera rtp stream
+	int socket_rtcp_fd; /// Socket for  camera rtcp stream
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
     unsigned int port_ice; /// Port for browser in sdp camera
     unsigned int port_camera; /// Port for receive stream from camera
-    unsigned int port_udp_camera; /// Port rtcp for camera 
+    unsigned int port_rtcp_camera; /// Port rtcp for camera 
     int socket_stream; 
     unsigned int port_ice_browser; /// Port received from browser in candidate
     char ice_browser[300]; /// Ice candidate from browser
@@ -173,6 +177,9 @@ struct pthread_arguments
     struct dtls_fingerprint attr_fingerprint;
     struct dtls_connection dtls_cert;
     struct crypto_context crypto;
+	struct crypto_context crypto_from_camera;
+	struct crypto_context crypto_rtcp;
+	uint32_t index_rtcp;
     X509* x509;
     EVP_PKEY* pkey;
     BIGNUM *exponent;

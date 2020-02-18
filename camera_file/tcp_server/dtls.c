@@ -1,6 +1,5 @@
 #include "dtls.h"
 
-static int flag_testing = 0;
 struct crypto_suite c_suites[] = {
 	{
 		.name = "AES_CM_128_HMAC_SHA1_80",
@@ -19,8 +18,8 @@ struct crypto_suite c_suites[] = {
 		.kernel_hmac = 2,
 		.encrypt_rtp = aes_cm_encrypt_rtp,
 		.decrypt_rtp = aes_cm_encrypt_rtp,
-		.encrypt_rtcp = aes_cm_encrypt_rtcp,
-		.decrypt_rtcp = aes_cm_encrypt_rtcp,
+		.encrypt_rtcp = aes_cm_encrypt_rtp,
+		.decrypt_rtcp = aes_cm_encrypt_rtp,
 		.hash_rtp = hmac_sha1_rtp,
 		.hash_rtcp = hmac_sha1_rtcp,
 		.session_key_init = aes_cm_session_key_init,
@@ -45,8 +44,8 @@ struct crypto_suite c_suites[] = {
 		.kernel_hmac = 2,
 		.encrypt_rtp = aes_cm_encrypt_rtp,
 		.decrypt_rtp = aes_cm_encrypt_rtp,
-		.encrypt_rtcp = aes_cm_encrypt_rtcp,
-		.decrypt_rtcp = aes_cm_encrypt_rtcp,
+		.encrypt_rtcp = aes_cm_encrypt_rtp,
+		.decrypt_rtcp = aes_cm_encrypt_rtp,
 		.hash_rtp = hmac_sha1_rtp,
 		.hash_rtcp = hmac_sha1_rtcp,
 		.session_key_init = aes_cm_session_key_init,
@@ -355,7 +354,7 @@ void dtls_init()
 	}
 	p[-1] = '\0';
 }
-int dtls_setup_crypto(struct dtls_connection *d, struct crypto_context *crypto)
+int dtls_setup_crypto(struct dtls_connection *d, struct crypto_context *crypto, struct crypto_context *crypto_rtcp, struct crypto_context* crypto_from_camera)
 {
 	printf("Dtls_setup_crypto\n");
 	const char *err;
@@ -363,9 +362,12 @@ int dtls_setup_crypto(struct dtls_connection *d, struct crypto_context *crypto)
 	int i;
 	const struct crypto_suite *cs;
 	unsigned char keys[2 * (SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN)];
-	struct crypto_params server;
+	struct crypto_params *server = &crypto_rtcp->params;
 	struct crypto_params *client = &crypto->params;
+
 	crypto->have_session_key = 0;
+	crypto_rtcp->have_session_key = 0;
+	crypto_from_camera->have_session_key = 0;
 	err = "no SRTP protection profile negotiated";
 	spp = SSL_get_selected_srtp_profile(d->ssl);
 	if (!spp)
@@ -396,18 +398,21 @@ found:
 
 	/* got everything XXX except MKI */
 	bzero(client, sizeof(struct crypto_params));
-	bzero(&server, sizeof(struct crypto_params));
+	bzero(server, sizeof(struct crypto_params));
 	i = 0;
 
-	client->crypto_suite = server.crypto_suite = cs;
+	client->crypto_suite = server->crypto_suite = cs;
+	crypto_from_camera->params.crypto_suite = cs;
 
 	memcpy(client->master_key, &keys[i], cs->master_key_len);
+	memcpy(crypto_from_camera->params.master_key, &keys[i], cs->master_key_len);
 	i += cs->master_key_len;
-	memcpy(server.master_key, &keys[i], cs->master_key_len);
+	memcpy(server->master_key, &keys[i], cs->master_key_len);
 	i += cs->master_key_len;
 	memcpy(client->master_salt, &keys[i], cs->master_salt_len);
+	memcpy(crypto_from_camera->params.master_salt, &keys[i], cs->master_salt_len);
 	i += cs->master_salt_len;
-	memcpy(server.master_salt, &keys[i], cs->master_salt_len);
+	memcpy(server->master_salt, &keys[i], cs->master_salt_len);
 
 	printf("SRTP keys negotiated: "
 		   "c-m: %02x%02x%02x%02x%02x%02x%02x%02x "
@@ -418,11 +423,11 @@ found:
 		   client->master_key[4], client->master_key[5], client->master_key[6], client->master_key[7],
 		   client->master_salt[0], client->master_salt[1], client->master_salt[2], client->master_salt[3],
 		   client->master_salt[4], client->master_salt[5], client->master_salt[6], client->master_salt[7],
-		   server.master_key[0], server.master_key[1], server.master_key[2], server.master_key[3],
-		   server.master_key[4], server.master_key[5], server.master_key[6], server.master_key[7],
-		   server.master_salt[0], server.master_salt[1], server.master_salt[2], server.master_salt[3],
-		   server.master_salt[4], server.master_salt[5], server.master_salt[6], server.master_salt[7]);
-	if (flag_testing)
+		   server->master_key[0], server->master_key[1], server->master_key[2], server->master_key[3],
+		   server->master_key[4], server->master_key[5], server->master_key[6], server->master_key[7],
+		   server->master_salt[0], server->master_salt[1], server->master_salt[2], server->master_salt[3],
+		   server->master_salt[4], server->master_salt[5], server->master_salt[6], server->master_salt[7]);
+	if (FLAG_TESTING)
 	{
 		for (size_t k = 0; k < 16; k++)
 		{
@@ -474,7 +479,7 @@ int dtls(struct pthread_arguments *p_a, unsigned char *s, unsigned int len)
 	else if (ret == 1)
 	{
 		printf("Try_connection: Successful\n");
-		dtls_setup_crypto(d, &p_a->crypto);
+		dtls_setup_crypto(d, &p_a->crypto, &p_a->crypto_rtcp, &p_a->crypto_from_camera);
 	}
 
 	while (1)
@@ -513,65 +518,6 @@ int dtls(struct pthread_arguments *p_a, unsigned char *s, unsigned int len)
 
 	return 1;
 }
-static void aes_ctr(unsigned char *out, struct str_key *in, EVP_CIPHER_CTX *ecc, const unsigned char *iv)
-{
-	unsigned char ivx[16];
-	unsigned char key_block[16];
-	unsigned char *p, *q;
-	unsigned int left;
-	int outlen, i;
-	u_int64_t *pi, *qi, *ki;
-	//printf("Start aes\n");
-
-	memcpy(ivx, iv, 16);
-	pi = (uint64_t *)in->str;
-	qi = (uint64_t *)out;
-	ki = (uint64_t *)key_block;
-	left = in->len;
-	if(flag_testing)
-	{
-		printf("IVX1 --- ");
-		printText(ivx, 16);
-	}
-	while (left)
-	{
-		EVP_EncryptUpdate(ecc, key_block, &outlen, ivx, 16);
-		if(flag_testing)
-		{
-			printf("IVX2 --- ");
-			printText(ivx, 16);
-			printf("Key_block --- ");
-			printText(key_block, 16);
-		}
-		if (left < 16)
-		{
-			p = (unsigned char *)pi;
-			q = (unsigned char *)qi;
-			for (i = 0; i < 16; i++)
-			{
-				*q++ = *p++ ^ key_block[i];
-				left--;
-				if (!left)
-					goto done;
-			}
-			printf("Error: aes_ctr and abort\n");
-		}
-		*qi++ = *pi++ ^ ki[0];
-		*qi++ = *pi++ ^ ki[1];
-		left -= 16;
-
-		for (i = 15; i >= 0; i--)
-		{
-			ivx[i]++;
-			if (ivx[i])
-				break;
-		}
-	}
-
-done:
-	//printf("End aes\n");
-	;
-}
 /* rfc 3711 section 4.1 */
 static int aes_cm_encrypt_rtp(struct crypto_context *c, struct str_key *payload, uint32_t ssrc, uint64_t idx)
 {
@@ -589,32 +535,10 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct str_key *payload,
 	ivi[1] ^= htonl(ssrc);
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
-	if(flag_testing)
-		printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x INDEX ---> %lu\n", htonl(ssrc), ivi[1], ivi[2], ivi[3], idx);
+	printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x INDEX ---> %lu\n", htonl(ssrc), ivi[1], ivi[2], ivi[3], idx);
 	aes_ctr((unsigned char *)payload->str, payload, (EVP_CIPHER_CTX *)c->session_key_ctx[0], iv);
 }
 
-/* rfc 3711 sections 3.4 and 4.1 */
-static int aes_cm_encrypt_rtcp(struct crypto_context *c, unsigned char *buf, uint32_t ssrc, uint64_t index)
-{
-	/*unsigned char iv[16];
-	u_int32_t *ivi;
-	u_int32_t idxh, idxl;
-
-	memcpy(iv, c->session_salt, 14);
-	iv[14] = iv[15] = '\0';
-	ivi = (void *) iv;
-	idx <<= 16;
-	idxh = htonl((idx & 0xffffffff00000000ULL) >> 32);
-	idxl = htonl(idx & 0xffffffffULL);
-
-	ivi[1] ^= ssrc;
-	ivi[2] ^= idxh;
-	ivi[3] ^= idxl;
-
-	aes_ctr((void *) s->s, s, c->session_key_ctx[0], iv);*/
-	printf("aes_cm_encrypt_rtcp\n");
-}
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
 static int hmac_sha1_rtp(struct crypto_context *c, unsigned char *payload, struct str_key *in, uint64_t index)
@@ -648,18 +572,15 @@ static int hmac_sha1_rtp(struct crypto_context *c, unsigned char *payload, struc
 }
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
-static int hmac_sha1_rtcp(struct crypto_context *c, unsigned char *buf)
+static int hmac_sha1_rtcp(struct crypto_context *c, unsigned char *payload, struct str_key *in)
 {
-	/*
+	
 	unsigned char hmac[20];
 
 	HMAC(EVP_sha1(), c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len,
-			(unsigned char *) in->s, in->len, hmac, NULL);
+			(unsigned char *) in->str, in->len, hmac, NULL);
 
-	assert(sizeof(hmac) >= c->params.crypto_suite->srtcp_auth_tag);
-	memcpy(out, hmac, c->params.crypto_suite->srtcp_auth_tag);
-	*/
-	printf("hmac_sha1_rtcp\n");
+	memcpy(payload, hmac, c->params.crypto_suite->srtcp_auth_tag);
 	return 0;
 }
 

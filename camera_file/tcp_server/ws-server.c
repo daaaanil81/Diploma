@@ -10,18 +10,20 @@ static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void
 {
     return 0;
 }
-void* udp_stream(void* arg)
+void *udp_stream(void *arg)
 {
-    //FILE* fptr = fopen("STREAM.txt", "rb");
+    struct pthread_arguments *p_a = (struct pthread_arguments *)arg;
     unsigned char dtls_answers[1024] = {0};
+    struct sockaddr_in message_to_browser;
     unsigned char mes[1500] = {0};
-    int len;
-    struct sockaddr_in servaddr;
-    struct sockaddr_in stun_to_browser;
-    struct pollfd fds[2];
+    struct sockaddr_in address_camera_rtp;
+    struct sockaddr_in address_camera_rtcp;
+    struct sockaddr_in address_to_camera_rtcp;
+
+    struct pollfd fds[3];
     unsigned int i = 0;
     int fd_count = 0;
-    struct pthread_arguments *p_a = (struct pthread_arguments*)arg;
+    int len;
     rtp_init(p_a);
     if (dtls_connection_init(p_a) < 0)
     {
@@ -56,99 +58,116 @@ void* udp_stream(void* arg)
         printf("%s:%d:Dtls: error\n", __func__, __LINE__);
         goto done;
     }
-    if ( play_to_camera(p_a->sddr, p_a->camerafd, p_a->ip_camera, p_a->session) != 0)
+    if (play_to_camera(p_a->camerafd, p_a->ip_camera, p_a->session) != 0)
     {
         printf("%s:%d:play_to_camera\n", __func__, __LINE__);
         goto done;
     }
     flag_teardown = false;
     printf("Was send play on camera\n");
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET; // IPv4
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(p_a->port_camera); // port = 43700
-
-    memset(&stun_to_browser, 0, sizeof(stun_to_browser)); 
-    stun_to_browser.sin_family = AF_INET; // IPv4
-    inet_aton(p_a->ip_browser, &stun_to_browser.sin_addr); /// Address browser
-    stun_to_browser.sin_port = htons(p_a->port_ice_browser); /// Port browser 
-
-    if ((p_a->socket_rtp_fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-    {
-        perror("socket udp");
+    
+    if(createSockaddr(&address_camera_rtp, NULL, p_a->port_camera, &p_a->socket_rtp_fd)!= 0) // Open port on server for rtp 43700
         return 0;
-    }
-    if (bind(p_a->socket_rtp_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    {
-        perror("bind failed rtp");
+    if(createSockaddr(&address_camera_rtcp, NULL, p_a->port_camera+1, &p_a->socket_rtcp_fd)!= 0) // Open port on server for rtcp 43701
         return 0;
-    }    
+    setSockaddr(&message_to_browser, (unsigned char* )p_a->ip_browser, p_a->port_ice_browser); // Info address browser 
+    setSockaddr(&address_to_camera_rtcp, (unsigned char* )p_a->ip_camera, p_a->port_rtcp_camera); // Info address camera with rtcp port 
+
+
     /* First struct with descriptor for rtp from camera */
     fds[0].fd = p_a->socket_rtp_fd;
     fds[0].events = POLLIN;
     /* Second struct with descriptor for connection with browser(stun,srtp,srtcp) */
-    fds[1].fd = p_a->socket_stream;
+    fds[1].fd = p_a->socket_stream; 
     fds[1].events = POLLIN;
-    fd_count = 2;
-    while(1)
+    /* Second struct with descriptor for rtсp from camera */
+    fds[2].fd = p_a->socket_rtcp_fd; 
+    fds[2].events = POLLIN;
+    
+    fd_count = 3;
+    while (1)
     {
         if (poll(fds, fd_count, 1) < 0)
         {
             perror("Poll");
             return 0;
         }
-        if(fds[0].revents & POLLIN != 0)
+        if (fds[0].revents & POLLIN != 0)
         {
+            unsigned char rtp_sps[210] = {0};
             int l = recv(p_a->socket_rtp_fd, mes, 1500, 0);
-            unsigned short protocol = 0;
-            switch(protocol)
+            printf("Was recv: %d\n", l);
+            int sps_size = 0;
+            sps_size = rtp_to_srtp(p_a, mes, rtp_sps, &l);
+            if (sps_size != 0)
             {
-                case :
-                    break;
-                case :
-                    break;
-                case 0:
-                    break;
+                sps_size = sendto(p_a->socket_stream, (char *)rtp_sps, sps_size, 0, (struct sockaddr *)&message_to_browser, sizeof(message_to_browser));
+                printf("SPS size: %d\n", sps_size);
+            }
+            if (sps_size == -1)
+                break;
+            l = sendto(p_a->socket_stream, (char *)mes, l, 0, (struct sockaddr *)&message_to_browser, sizeof(message_to_browser));
+            if (l == -1)
+                break;
+            printf("Was send: %d\n", l);
+            printf("Camera -> RTP -> Browser\n");
+        }
+        if (fds[1].revents & POLLIN != 0)
+        {
+            struct sockaddr_in addr;
+            int addr_len = sizeof(addr);
+            unsigned short protocol = 0;
+            int l = recvfrom(p_a->socket_stream, mes, 1500, 0, (struct sockaddr*)&addr, &addr_len);
+            if  (strcmp(p_a->ip_browser, inet_ntoa(addr.sin_addr)) != 0)
+                continue;
+            protocol = mes[0];
+            switch (protocol)
+            {
+            case 0x81:
+                printf("Camera <- RTCP <- Browser\n");
+                printf("Was recv: %d\n", l);
+                rtcp_savp_to_avp(&p_a->crypto_rtcp, mes, &l);
+                printf("Return size: %d\n", l);
+                l = sendto(p_a->socket_rtcp_fd, mes, l, 0, (struct sockaddr*)&address_to_camera_rtcp, sizeof(address_to_camera_rtcp));
+                printf("Send size: %d\n", l);
+                break;
+            case 0x00:
+                printf("Camera <- STUN <- Browser\n");
+                stun_response(p_a, mes, l, &addr);
+                break;
             }
         }
-        if(fds[1].revents & POLLIN != 0)
+        if (fds[2].revents & POLLIN != 0)
         {
-
+            unsigned char rtp_sps[210] = {0};
+            int l = recv(p_a->socket_rtcp_fd, mes, 1500, 0);
+            printf("Was recv: %d\n", l);
+            //sps_size = rtp_to_srtp(p_a, mes, rtp_sps, &l);
+            rtcp_avp_to_savp(&p_a->crypto_from_camera, mes, &l, &p_a->index_rtcp);
+            l = sendto(p_a->socket_stream, (char *)mes, l, 0, (struct sockaddr *)&message_to_browser, sizeof(message_to_browser));
+            if (l == -1)
+                break;
+            printf("Was send: %d\n", l);
+            printf("Camera -> RTCP -> Browser\n");
         }
-        unsigned char rtp_sps[210] = {0};
-        int l = recv(p_a->socket_rtp_fd, mes, 1500, 0);
-        //fread(&l, sizeof(int), 1, fptr);
-        //fread(mes, 1, l, fptr);
-        printf("Was recv: %d\n", l);
-        //printf("Recv: %d\n", l);
-        int sps_size = 0;
-        sps_size = rtp_to_srtp(p_a, mes, rtp_sps, &l);
-        if(sps_size != 0)
-        {
-            sps_size = sendto(p_a->socket_stream, (char *)rtp_sps, sps_size, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser)); 
-            printf("SPS size: %d\n", sps_size);
-        }
-        if(sps_size == -1)
-            break;
-	    l = sendto(p_a->socket_stream, (char *)mes, l, 0, (struct sockaddr *)&stun_to_browser, sizeof(stun_to_browser)); 
-        if(l == -1)
-            break;
-        printf("Was send: %d\n", l);
-        i++;
     }
-    //fclose(fptr);
 
 done:
     printf("DONE\n");
-    if(!flag_teardown)
+    if (!flag_teardown)
         teardown_to_camera(p_a->camerafd, p_a->ip_camera, p_a->session);
-    if(p_a->socket_rtp_fd >= 0)
+    if (p_a->socket_rtp_fd >= 0)
     {
         close(p_a->socket_rtp_fd);
         p_a->socket_rtp_fd = -1;
     }
+    if (p_a->socket_rtcp_fd >= 0)
+    {
+        close(p_a->socket_rtcp_fd);
+        p_a->socket_rtcp_fd = -1;
+    }
     flag_teardown = true;
-    return 0; 
+    return 0;
 }
 static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
 {
@@ -179,18 +198,18 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
         {
             memcpy((char *)buf + LWS_PRE, "Connect", strlen("Connect"));
             lws_write(wsi, &buf[LWS_PRE], strlen("Connect"), LWS_WRITE_TEXT); /// Send connect into clients
-            busy = true; /// Server will work only one clients on time
+            busy = true;                                                      /// Server will work only one clients on time
             arg_pthread->index = -1;
-            for(size_t m = 0; m < 5; m++)
+            for (size_t m = 0; m < 5; m++)
             {
-                if(list[m] != true)
+                if (list[m] != true)
                 {
                     arg_pthread->index = m;
                     list[m] = true;
                     break;
                 }
             }
-            if(arg_pthread->index < 0)
+            if (arg_pthread->index < 0)
             {
                 memcpy((char *)buf + LWS_PRE, "Error with limit connection", strlen("Error with limit connection"));
                 lws_write(wsi, &buf[LWS_PRE], strlen("Error with limit connection"), LWS_WRITE_TEXT);
@@ -221,16 +240,16 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 {
                     printf("Connect");
                     arg_pthread->index = -1;
-                    for(size_t m = 0; m < 5; m++)
+                    for (size_t m = 0; m < 5; m++)
                     {
-                        if(list[m] != true)
+                        if (list[m] != true)
                         {
                             arg_pthread->index = m;
                             list[m] = true;
                             break;
                         }
                     }
-                    if(arg_pthread->index < 0)
+                    if (arg_pthread->index < 0)
                     {
                         memcpy((char *)buf + LWS_PRE, "Error with limit connection", strlen("Error with limit connection"));
                         lws_write(wsi, &buf[LWS_PRE], strlen("Error with limit connection"), LWS_WRITE_TEXT);
@@ -257,7 +276,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             arg_pthread->port_ice = port_ice_start;
             arg_pthread->port_camera = port_camera_start;
 
-            if (connect_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
+            if (connect_camera(&arg_pthread->sddr,&arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
             {
                 memcpy((char *)buf + LWS_PRE, "Error with connect to camera", strlen("Error with connect to camera"));
                 lws_write(wsi, &buf[LWS_PRE], strlen("Error with connect to camera"), LWS_WRITE_TEXT);
@@ -270,7 +289,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 memcpy((char *)buf + LWS_PRE, "OK", strlen("OK")); /// Send OK, camera with status "Work"
                 lws_write(wsi, &buf[LWS_PRE], strlen("OK"), LWS_WRITE_TEXT);
                 printf("Next steps\n\n\n");
-                if (option_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
+                if (option_to_camera(arg_pthread->camerafd, arg_pthread->ip_camera) != 0)
                 {
                     printf("Error with option\n");
                     busy = false;
@@ -279,7 +298,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     free(arg_pthread);
                     break;
                 }
-                if (describe_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera, (char *)buf) != 0)
+                if (describe_to_camera(arg_pthread->camerafd, arg_pthread->ip_camera, (char *)buf) != 0)
                 {
                     printf("Error with describe\n");
                     busy = false;
@@ -288,7 +307,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Error with describe"), LWS_WRITE_TEXT);
                     break;
                 }
-                strcpy(arg_pthread->sdp_camera, strstr((char *)buf, "v=")); 
+                strcpy(arg_pthread->sdp_camera, strstr((char *)buf, "v="));
             }
         }
         if (strncmp((char *)buf, "SDP", strlen("SDP")) == 0) /// Server receive SDP offer from browser and browser wait answer
@@ -296,7 +315,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             printf("SDP Offer\n");
             memset(arg_pthread->sdp_offer, 0, sizeof(arg_pthread->sdp_offer));
             strcpy(arg_pthread->sdp_offer, (char *)buf + strlen("SDP"));
-            if (setup_to_camera(arg_pthread->sddr, arg_pthread->camerafd, arg_pthread->ip_camera, arg_pthread->port_camera, arg_pthread->session, arg_pthread->port_udp_camera) != 0)
+            if (setup_to_camera(arg_pthread->camerafd, arg_pthread->ip_camera, arg_pthread->port_camera, arg_pthread->session, &arg_pthread->port_rtcp_camera) != 0)
             {
                 printf("Error with setup\n");
                 busy = false;
@@ -306,7 +325,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 break;
             }
             pwdParse(arg_pthread);
-            sdp_step = true; /// Marker, sdp step was finished
+            sdp_step = true;          /// Marker, sdp step was finished
             if (ice_step && sdp_step) /// was finished all step
             {
                 printf("Create Threads SDP\n");
@@ -347,7 +366,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server) + strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
-                if (stun_response(arg_pthread, NULL) != 0)
+                if (stun_response(arg_pthread, NULL, 0, NULL) != 0)
                 {
                     printf("Error with stun response\n");
                     busy = false;
@@ -356,15 +375,15 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Error with stun response"), LWS_WRITE_TEXT);
                     break;
                 }
-                
-                if(pthread_create(&tchilds[arg_pthread->index], 0, udp_stream, arg_pthread) < 0)
+
+                if (pthread_create(&tchilds[arg_pthread->index], 0, udp_stream, arg_pthread) < 0)
                 {
                     perror("Can't create thread!");
                     free_all(arg_pthread);
                 }
                 pthread_join(tchilds[arg_pthread->index], 0);
-                if(busy)
-                    free_all(arg_pthread);      
+                if (busy)
+                    free_all(arg_pthread);
                 //pthread_detach(tchilds[arg_pthread->index]);
                 busy = false;
                 printf("After join\n");
@@ -416,10 +435,10 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->sdp_answer) + strlen(type_sdp), LWS_WRITE_TEXT); /// Send answer into browser
 
                 printf("Send Ice: \n");
-                memset(buf, 0, sizeof(buf));    
+                memset(buf, 0, sizeof(buf));
                 sprintf((char *)buf + LWS_PRE, "%s%s", type_ice, arg_pthread->ice_server);
                 lws_write(wsi, &buf[LWS_PRE], strlen(arg_pthread->ice_server) + strlen(type_ice), LWS_WRITE_TEXT); /// Send ice candidate into browser
-                if (stun_response(arg_pthread) != 0)
+                if (stun_response(arg_pthread, NULL, 0, NULL) != 0)
                 {
                     printf("Error with stun response\n");
                     busy = false;
@@ -428,13 +447,13 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
                     lws_write(wsi, &buf[LWS_PRE], strlen("Error with stun response"), LWS_WRITE_TEXT);
                     break;
                 }
-                if(pthread_create(&tchilds[arg_pthread->index], 0, udp_stream, arg_pthread) < 0)
+                if (pthread_create(&tchilds[arg_pthread->index], 0, udp_stream, arg_pthread) < 0)
                 {
                     perror("Can't create thread!");
                     free_all(arg_pthread);
                 }
                 pthread_join(tchilds[arg_pthread->index], 0);
-                if(busy)
+                if (busy)
                     free_all(arg_pthread);
                 //pthread_detach(tchilds[arg_pthread->index]);
                 busy = false;
@@ -461,9 +480,9 @@ void sigint_handler(int sig)
 {
     printf("Int\n");
     interrupted = 1;
-    if(busy == true)
+    if (busy == true)
     {
-        if(!flag_teardown)
+        if (!flag_teardown)
         {
             teardown_to_camera(arg_pthread->camerafd, arg_pthread->ip_camera, arg_pthread->session);
             flag_teardown = true;
@@ -478,7 +497,7 @@ void handler_sigsegv(int signum)
 {
     printf("My Segmentation fault\n");
     interrupted = 1;
-    if(busy == true)
+    if (busy == true)
     {
         free_all(arg_pthread);
         busy = false;
@@ -496,7 +515,7 @@ int main(int argc, const char **argv)
 
     signal(SIGINT, sigint_handler);
     signal(SIGSEGV, handler_sigsegv);
-    if(argv[1] == NULL)
+    if (argv[1] == NULL)
     {
         printf("Please enter ip address\n");
         return 0;
@@ -506,10 +525,10 @@ int main(int argc, const char **argv)
     lwsl_user("WebSocket security: http://%s:9999\n", ip_server_program);
     printf("Enter Ctrl + C for exit.\n");
     memset(&info, 0, sizeof info);
-    info.port = 9999; /// Server port 
+    info.port = 9999; /// Server port
     info.mounts = NULL;
     info.protocols = protocols;
-    info.vhost_name = ip_server_program; /// Server ip 
+    info.vhost_name = ip_server_program; /// Server ip
     info.ws_ping_pong_interval = 10;
     info.options = LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
     lwsl_user("Server using TLS\n");
