@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
 	bzero(&tcp_camera_addr, sizeof(tcp_camera_addr));
 	tcp_camera_addr.sin_family = AF_INET;
         tcp_camera_addr.sin_port = htons(port_camera);
-	if (inet_pton(AF_INET, ip_camera, &tcp_camera_addr.sin_addr) == 0)
+	if (inet_aton(ip_camera, &tcp_camera_addr.sin_addr) == 0)
 	{
 		perror("inet phon");
 		return 1;

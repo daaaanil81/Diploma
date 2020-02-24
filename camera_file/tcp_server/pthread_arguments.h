@@ -23,6 +23,7 @@
 #include <endian.h>
 #include <netdb.h>
 #include <stdint.h>
+#include <time.h>
 
 #define TCP_PORT 554 /// TCP port for connect to camera
 #define DESCRIBE_BUFFER_SIZE 1024 /// Size buffer for description camera
@@ -188,8 +189,9 @@ struct pthread_arguments
 	ASN1_INTEGER *asn1_serial_number;
 	X509_NAME *name;
     uint64_t index;
-	uint32_t sequnce_origin;
-	uint32_t sequnce_new;
+	uint16_t sequnce_origin;
+	uint16_t sequnce_new;
+	uint32_t qSec;
 };
 void gen_random(unsigned char *s, const int len);
 static char ip_server_program[16];

@@ -57,9 +57,9 @@ void rtcp_payload(struct rtcp_header* rtcp_h, struct str_key* payload, unsigned 
 {
     rtcp_h->length = (s[2] & 0xFF) << 8 | (s[3] & 0xFF);
     rtcp_h->ssrc = (s[4] & 0xFF) << 24 | (s[5] & 0xFF) << 16 | (s[6] & 0xFF) << 8 | (s[7] & 0xFF);
+	printf("SSRC result RTCP: %u\n", rtcp_h->ssrc);
     payload->len = length - sizeof(struct rtcp_header);
     payload->str = s + sizeof(struct rtcp_header);
-    printf("Start SRTCP: \nLength: %u\nSSRC: %u\n", rtcp_h->length, rtcp_h->ssrc);
 }
 int rtcp_savp_to_avp(struct crypto_context *crypto_rtcp, unsigned char *rtcp, int* length) 
 {
@@ -78,7 +78,6 @@ int rtcp_savp_to_avp(struct crypto_context *crypto_rtcp, unsigned char *rtcp, in
 	payload.len -= sizeof(idx);
 	idx_p = (void *) payload.str + payload.len;
 	idx = ntohl(*idx_p);
-    printf("SRTCP ----------------> INDEX: %u\n", idx);
 	if ((idx & 0x80000000ULL)) {
 		if (crypto_decrypt_rtcp(crypto_rtcp, &payload, rtcp_h.ssrc, idx & 0x7fffffffULL))
 			return -1;
@@ -96,23 +95,23 @@ int rtcp_avp_to_savp(struct crypto_context *crypto_from_camera, unsigned char *r
     struct rtcp_header rtcp_h;
 	u_int32_t *idx;
 	struct str_key to_auth, payload;
-    printf("RTCP avp_savp\n");
 	rtcp_payload(&rtcp_h, &payload, rtcp, *length);
     if (check_session_keys_rtcp(crypto_from_camera))
 		return -1;
     to_auth.str = rtcp;
     to_auth.len = *length;
+	printf("SRTCP index --------------> %d\n", *index_rtcp);
+	printf("RTCP avp_savp SSRC: -------------------> %u\n", rtcp_h.ssrc);
 	if (crypto_encrypt_rtcp(crypto_from_camera, &payload, rtcp_h.ssrc, *index_rtcp))
 		return -1;
 
 	idx = (void *) to_auth.str + to_auth.len;
 	*idx = htonl((0x80000000ULL | *index_rtcp));
 	to_auth.len += sizeof(*idx);
-    printf("SRTCP ----------------> INDEX: %u\n", *idx);
 	crypto_from_camera->params.crypto_suite->hash_rtcp(crypto_from_camera, to_auth.str + to_auth.len, &to_auth);
 	to_auth.len += crypto_from_camera->params.crypto_suite->srtcp_auth_tag;
     *length = to_auth.len;
-    *index_rtcp++;
+    (*index_rtcp)++;
 	return 1;
 error:
 	printf("Discarded invalid SRTCP packet");

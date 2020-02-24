@@ -33,4 +33,6 @@ static int hmac_sha1_rtp(struct crypto_context *, unsigned char *payload, struct
 static int hmac_sha1_rtcp(struct crypto_context *c, unsigned char *payload, struct str_key *in);
 static int aes_cm_session_key_init(struct crypto_context *c);
 static int evp_session_key_cleanup(struct crypto_context *c);
+void crypto_cleanup(struct crypto_context *c);
+
 #endif

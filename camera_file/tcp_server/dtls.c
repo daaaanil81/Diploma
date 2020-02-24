@@ -216,49 +216,69 @@ int dtls_connection_init(struct pthread_arguments *p_a)
 #else
 	d->ssl_ctx = SSL_CTX_new(active ? DTLSv1_client_method() : DTLSv1_server_method());
 #endif
+	const char* err;
 	if (!d->ssl_ctx)
 	{
 		printf("LINE:%d:Error in SSL_CTX_new\n", __LINE__);
 		goto error;
 	}
+	printf("SSL_CTX_new\n");
+
 	if (SSL_CTX_use_certificate(d->ssl_ctx, p_a->x509) != 1)
 	{
 		printf("LINE:%d:Error in SSL_CTX_use_certificate\n", __LINE__);
 		goto error;
 	}
+	printf("SSL_CTX_use_certificate\n");
+
 	if (SSL_CTX_use_PrivateKey(d->ssl_ctx, p_a->pkey) != 1)
 	{
 		printf("LINE:%d:Error in SSL_CTX_use_PrivateKey\n", __LINE__);
 		goto error;
 	}
+	printf("SSL_CTX_use_PrivateKey\n");
+
 	SSL_CTX_set_cipher_list(d->ssl_ctx, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 	if (SSL_CTX_set_tlsext_use_srtp(d->ssl_ctx, ciphers_str))
 	{
 		printf("LINE:%d:Error in SSL_CTX_set_tlsext_use_srtp\n", __LINE__);
 		goto error;
 	}
+	printf("SSL_CTX_set_tlsext_use_srtp\n");
+
 	if (SSL_CTX_set_read_ahead(d->ssl_ctx, 1))
 	{
 		printf("LINE:%d:Error in SSL_CTX_set_read_ahead\n", __LINE__);
 		goto error;
 	}
+	printf("SSL_CTX_set_read_ahead\n");
+
 	d->ssl = SSL_new(d->ssl_ctx);
+	printf("SSL_new\n");
+	
 	if (!d->ssl)
 	{
 		printf("LINE:%d:Error in SSL_new\n", __LINE__);
 		goto error;
 	}
+	
 	d->r_bio = BIO_new(BIO_s_mem());
 	d->w_bio = BIO_new(BIO_s_mem());
+	printf("BIO_new\n");
+
 	if (!d->r_bio || !d->w_bio)
 	{
 		printf("LINE:%d:Error in BIO_new\n", __LINE__);
 		goto error;
 	}
 	SSL_set_app_data(d->ssl, d);
+	printf("SSL_set_app_data\n");
+
 	SSL_set_bio(d->ssl, d->r_bio, d->w_bio);
+	printf("SSL_set_bio\n");
 
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+	printf("SSL_set_mode\n");
 
 	ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	if (ecdh == NULL)
@@ -279,7 +299,7 @@ int dtls_connection_init(struct pthread_arguments *p_a)
 	return 0;
 
 error:
-	if (p_a->dtls_cert.r_bio)
+	if (d->r_bio)
 		BIO_free(d->r_bio);
 	if (d->w_bio)
 		BIO_free(d->w_bio);
@@ -294,31 +314,39 @@ error:
 void dtls_connection_cleanup(struct dtls_connection *c)
 {
 	printf("dtls_connection_cleanup\n");
-	if (c->r_bio)
-		BIO_free(c->r_bio);
-	if (c->w_bio)
-		BIO_free(c->w_bio);
-	if (c->ssl)
-		SSL_free(c->ssl);
 	if (c->ssl_ctx)
 		SSL_CTX_free(c->ssl_ctx);
+	printf("Free ssl_ctx\n");
+	SSL_shutdown(c->ssl);
+	if (c->ssl)
+		SSL_free(c->ssl);
+	printf("Free ssl\n");
+	if (c->r_bio)
+		BIO_free(c->r_bio);
+	printf("Free r_bio\n");
+	if (c->w_bio)
+		BIO_free(c->w_bio);
+	printf("Free w_bio\n");
 	bzero(c, sizeof(struct dtls_connection));
 }
 void dtls_fingerprint_free(struct pthread_arguments *cert)
 {
 	printf("dtls_fingerprint_free\n");
+	if (cert->pkey)
+		EVP_PKEY_free(cert->pkey);
+	printf("Free pkey\n");
+	if (cert->x509)
+		X509_free(cert->x509);
+	printf("Free x509\n");
 	if (cert->name)
 		X509_NAME_free(cert->name);
+	printf("Free name\n");
 	if (cert->exponent)
 		BN_free(cert->exponent);
-	if (cert->rsa)
-		RSA_free(cert->rsa);
+	printf("Free exponent\n");
 	if (cert->serial_number)
 		BN_free(cert->serial_number);
-	// if (cert->pkey)
-	// 	EVP_PKEY_free(cert->pkey);
-	// if (cert->x509)
-	// 	X509_free(cert->x509);
+	printf("Free serial_number\n");
 }
 static void buf_dump_free(char *buf, size_t len)
 {
@@ -354,7 +382,7 @@ void dtls_init()
 	}
 	p[-1] = '\0';
 }
-int dtls_setup_crypto(struct dtls_connection *d, struct crypto_context *crypto, struct crypto_context *crypto_rtcp, struct crypto_context* crypto_from_camera)
+int dtls_setup_crypto(struct dtls_connection *d, struct crypto_context *crypto, struct crypto_context *crypto_rtcp, struct crypto_context *crypto_from_camera)
 {
 	printf("Dtls_setup_crypto\n");
 	const char *err;
@@ -535,10 +563,9 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct str_key *payload,
 	ivi[1] ^= htonl(ssrc);
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
-	printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x INDEX ---> %lu\n", htonl(ssrc), ivi[1], ivi[2], ivi[3], idx);
+	printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x --- INDEX ---> %lu\n", htonl(ssrc) ,ivi[1], ivi[2], ivi[3], idx);
 	aes_ctr((unsigned char *)payload->str, payload, (EVP_CIPHER_CTX *)c->session_key_ctx[0], iv);
 }
-
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
 static int hmac_sha1_rtp(struct crypto_context *c, unsigned char *payload, struct str_key *in, uint64_t index)
@@ -567,18 +594,17 @@ static int hmac_sha1_rtp(struct crypto_context *c, unsigned char *payload, struc
 #endif
 
 	memcpy(payload, hmac, c->params.crypto_suite->srtp_auth_tag);
-	printf("hmac_sha1_rtp\n");
 	return 0;
 }
 
 /* rfc 3711, sections 4.2 and 4.2.1 */
 static int hmac_sha1_rtcp(struct crypto_context *c, unsigned char *payload, struct str_key *in)
 {
-	
+
 	unsigned char hmac[20];
 
 	HMAC(EVP_sha1(), c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len,
-			(unsigned char *) in->str, in->len, hmac, NULL);
+		 (unsigned char *)in->str, in->len, hmac, NULL);
 
 	memcpy(payload, hmac, c->params.crypto_suite->srtcp_auth_tag);
 	return 0;
@@ -654,4 +680,14 @@ int readDTLS(int fd, unsigned char *dtls_answers)
 	iov.iov_len = DTLS_MESSAGES;
 	int answer = recvmsg(fd, &msg, 0);
 	return answer;
+}
+
+void crypto_cleanup(struct crypto_context *c)
+{
+	if (!c->params.crypto_suite)
+		return;
+	if (c->params.crypto_suite->session_key_cleanup)
+		c->params.crypto_suite->session_key_cleanup(c);
+	c->have_session_key = 0;
+	c->params.crypto_suite = NULL;
 }

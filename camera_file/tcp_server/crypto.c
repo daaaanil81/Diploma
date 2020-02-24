@@ -7,8 +7,6 @@ void aes_ctr(unsigned char *out, struct str_key *in, EVP_CIPHER_CTX *ecc, const 
 	unsigned int left;
 	int outlen, i;
 	uint64_t *pi, *qi, *ki;
-	printf("Start aes\n");
-	printf("Size: %d\n", in->len);
 	memcpy(ivx, iv, 16);
 	pi = (uint64_t *)in->str;
 	qi = (uint64_t *)out;
@@ -27,10 +25,7 @@ void aes_ctr(unsigned char *out, struct str_key *in, EVP_CIPHER_CTX *ecc, const 
 				*q++ = *p++ ^ key_block[i];
 				left--;
 				if (!left)
-				{
-					printf("Go to\n");
 					goto done;
-				}
 			}
 			printf("Error: aes_ctr and abort\n");
 		}
@@ -47,7 +42,6 @@ void aes_ctr(unsigned char *out, struct str_key *in, EVP_CIPHER_CTX *ecc, const 
 	}
 
 done:
-	printf("End aes\n");
 	;
 }
 void aes_ctr_no_ctx(unsigned char *out, struct str_key *in, const unsigned char *key, const EVP_CIPHER *ciph,

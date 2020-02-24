@@ -1,7 +1,7 @@
 #include <time.h>
 #include "h264_camera.h"
 
-int connect_camera(struct sockaddr_in* saddr, int* camerafd, char* host)
+int connect_camera(struct sockaddr_in* saddr, int* camerafd, char* host, uint32_t* qSec)
 {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd < 0)
@@ -14,55 +14,68 @@ int connect_camera(struct sockaddr_in* saddr, int* camerafd, char* host)
     if(connect(fd, (struct sockaddr*)saddr, sizeof(struct sockaddr_in)) != 0)
         return 1;
     *camerafd = fd;
+    (*qSec) = 0;
     return 0;
 }
-int option_to_camera(int camerafd, char* host)
+int option_to_camera(int camerafd, char* host, uint32_t* qsec)
 {
     char option[REQUEST];
     char answer[OPTION_BUFFER_SIZE];
-    sprintf(option, "%s%s%s", option_camera_first, host, option_camera_second);
+    sprintf(option, "%s%s%s%u%s", option_camera_first, host, option_camera_second, *qsec, option_camera_three);
     if(write(camerafd, option, strlen(option)) < 0)
         return 1;
     if(read(camerafd, answer, sizeof(answer)) < 0)
        return 1;
+    (*qsec)++;
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
 }
-int describe_to_camera(int camerafd, char* host, char* ans) /// Description camera
+int describe_to_camera(int camerafd, char* host, char* ans, uint32_t* qsec) /// Description camera
 {
     char describe[REQUEST];
     char answer[DESCRIBE_BUFFER_SIZE];
-    sprintf(describe, "%s%s%s", describe_camera_first, host, describe_camera_second);
+    sprintf(describe, "%s%s%s%u%s", describe_camera_first, host, describe_camera_second, *qsec, describe_camera_three);
     if(write(camerafd, describe, strlen(describe)) < 0)
-    {
         return 1;
-    }
     if(read(camerafd, answer, sizeof(answer)) < 0)
-    {
         return 1;
-    }
+    (*qsec)++;
     strcpy(ans,answer);
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
 }
-int setup_to_camera(int camerafd, char* host, unsigned int port_camera, char* session, unsigned int* port_udp)
+int parameters_to_camera(int camerafd, char* host, char* session, uint32_t* qsec)
+{
+    char parameters[REQUEST];
+    char answer[OPTION_BUFFER_SIZE];
+    //sprintf(parameters, "%s%s%s%u%s%s%s", parameters_camera_first, host, parameters_camera_second, *qsec, parameters_camera_three, session, parameters_camera_four);
+    sprintf(parameters, "%s%s%s%u%s%s\r\n\r\n", parameters_camera_first, host, parameters_camera_second, *qsec, parameters_camera_three, session);
+    
+    printf("%s\n", parameters);
+    if(write(camerafd, parameters, strlen(parameters)) < 0)
+        return 1;
+    if(read(camerafd, answer, sizeof(answer)) < 0)
+       return 1;
+    (*qsec)++;
+    if(DEBUG)
+        printf("%s\n", answer);
+    return 0;
+}
+int setup_to_camera(int camerafd, char* host, unsigned int port_camera, char* session, unsigned int* port_udp, uint32_t* qsec)
 {
     char setup[REQUEST];
     char answer[SETUP_BUFFER_SIZE];
     char* t1;
     char* t2;
-    sprintf(setup, "%s%s%s%d-%d\r\n\r\n", setup_camera_first, host, setup_camera_second, port_camera, port_camera + 1);
+    sprintf(setup, "%s%s%s%u%s%d-%d\r\n\r\n", setup_camera_first, host, setup_camera_second, *qsec, setup_camera_three, port_camera, port_camera + 1);
     printf("%s\n", setup);
     if(write(camerafd, setup, strlen(setup)) < 0)
-    {
         return 1;
-    }
     if(read(camerafd, answer, sizeof(answer)) < 0)
-    {
         return 1;
-    }
+    (*qsec)++;
     t1 = strstr(answer, "Session");
     t1 += 9;
     t2 = strstr(t1, ";");
@@ -77,31 +90,33 @@ int setup_to_camera(int camerafd, char* host, unsigned int port_camera, char* se
         printf("%s\n", answer);
     return 0;
 }
-int play_to_camera(int camerafd, char* host, char* session)
+int play_to_camera(int camerafd, char* host, char* session, uint32_t* qsec)
 {
     char play[REQUEST];
     char answer[PLAY_BUFFER_SIZE];
     char* t1;
     char* t2;
-    sprintf(play, "%s%s%s%s%s", play_camera_first, host, play_camera_second, session, play_camera_thirt);
+    sprintf(play, "%s%s%s%u%s%s%s", play_camera_first, host, play_camera_second, *qsec, play_camera_three, session, play_camera_thirt);
     if(write(camerafd, play, strlen(play)) < 0)
         return 1;
     if(read(camerafd, answer, sizeof(answer)) < 0)
         return 1;
+    (*qsec)++;
     if(DEBUG)
         printf("%s\n", answer);
     return 0;
 }
-int teardown_to_camera(int sockfd, char* host, char* session)
+int teardown_to_camera(int sockfd, char* host, char* session, uint32_t* qsec)
 {
 	char teardown_text[512] = {0};
-	sprintf(teardown_text, "TEARDOWN rtsp://%s/axis-media/media.amp RTSP/1.0\r\nCSeq: 3\r\nUser-Agent: RTSPClient\r\nSession: %s\r\n\r\n", host, session);
+	sprintf(teardown_text, "TEARDOWN rtsp://%s/axis-media/media.amp RTSP/1.0\r\nCSeq: %u\r\nUser-Agent: RTSPClient\r\nSession: %s\r\n\r\n", host, *qsec, session);
 	printf("%s", teardown_text);
 	char buf[512] = {0};
 	if (send(sockfd, teardown_text, strlen(teardown_text), 0) < 0)
 		return 1;
 	if (recv(sockfd, buf, sizeof(buf), 0) < 0)
 		return 1;
+    (*qsec)++;
 	return 0;
 }
 
@@ -363,6 +378,11 @@ void free_all(struct pthread_arguments* p_a)
         close(p_a->socket_rtp_fd);
         p_a->socket_rtp_fd = -1;
     }
+    if(p_a->socket_rtcp_fd >= 0)
+    {
+        close(p_a->socket_rtcp_fd);
+        p_a->socket_rtcp_fd = -1;
+    }
     if(p_a->socket_stream >= 0)
     {
         close(p_a->socket_stream);
@@ -375,6 +395,12 @@ void free_all(struct pthread_arguments* p_a)
     }
     dtls_connection_cleanup(&p_a->dtls_cert);
     dtls_fingerprint_free(p_a);
+    printf("Crypto_cleanup crypto\n");
+    crypto_cleanup(&p_a->crypto);
+    printf("Crypto_cleanup crypto_from_camera\n");
+    crypto_cleanup(&p_a->crypto_from_camera);
+    printf("Crypto_cleanup crypto_rtcp\n");
+    crypto_cleanup(&p_a->crypto_rtcp);
     free(p_a);
     printf("Free\n");
 }

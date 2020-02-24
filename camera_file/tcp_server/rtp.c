@@ -17,6 +17,7 @@ void rtp_init(struct pthread_arguments *p_a)
 	p_a->sequnce_new = 0;
 	p_a->sequnce_origin = 0;
 	p_a->index_rtcp = 0;
+	p_a->index = 0;
 }
 
 unsigned int rtp_sps_parse(unsigned char *rtp, unsigned char *sps, unsigned int sequnce, struct pthread_arguments *p_a)
@@ -56,7 +57,7 @@ unsigned int rtp_sps_parse(unsigned char *rtp, unsigned char *sps, unsigned int 
  * struct rtp_header save data about rtp header  
  * 
 */
-unsigned int rtp_payload(struct rtp_header *rtp, struct str_key *payload, uint32_t *sequnce_origin, uint32_t *sequnce_new,
+unsigned int rtp_payload(struct rtp_header *rtp, struct str_key *payload, uint16_t *sequnce_origin, uint16_t *sequnce_new,
 						 unsigned char *all_mess, struct str_key *rtp_sps, struct pthread_arguments *p_a, int l)
 {
 	unsigned char v = (all_mess[0] & 0xC0) >> 6;
@@ -158,7 +159,7 @@ error:
 	printf("Error in check_session_keys\n");
 	return -1;
 }
-static u_int64_t packet_index(uint32_t seq_num, uint64_t srtp_index)
+static u_int64_t packet_index(uint16_t seq_num, uint64_t srtp_index)
 {
 	u_int16_t seq = seq_num;
 	if (srtp_index == 0)
@@ -182,8 +183,8 @@ static u_int64_t packet_index(uint32_t seq_num, uint64_t srtp_index)
 		else
 			v = roc;
 	}
-
-	return (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	srtp_index = (u_int64_t)(((v << 16) | seq) & 0xffffffffffffULL);
+	return srtp_index;
 }
 /**
  * rtp_to_srtp --> do all work with rtp packets
@@ -193,8 +194,7 @@ static u_int64_t packet_index(uint32_t seq_num, uint64_t srtp_index)
 */
 int rtp_to_srtp(struct pthread_arguments *p_a, unsigned char *rtp, unsigned char *rtp_sps, int *l)
 {
-	printf("rtp_to_srtp\n");
-	uint64_t index = 0;
+	uint64_t index = p_a->index;
 	struct str_key payload; /** Payload for save payload from camera and crypt his and send to browser */
 	struct str_key sps_mes;
 	struct str_key sps_payload;
@@ -212,11 +212,13 @@ int rtp_to_srtp(struct pthread_arguments *p_a, unsigned char *rtp, unsigned char
 		sps_payload.str = sps_mes.str + 12;
 		sps_payload.len = sps_mes.len - 12;
 		check_session_keys_rtp(&p_a->crypto);
-		index = packet_index(p_a->sequnce_new, index); /// 1 ...
+		index = p_a->index = packet_index(p_a->sequnce_new, index); /// 1 ...
 		crypto_encrypt_rtp(&p_a->crypto, &sps_payload, rtp_h.ssrc, index);
 		crypto_hash_rtp(&p_a->crypto, (unsigned char *)(sps_mes.str + sps_mes.len), &sps_mes, index);
 		sps_mes.len += 10;
 		p_a->sequnce_new += 1; /// 2 ...
+		if(p_a->sequnce_new == 0)
+			printf("Error ------ Error Sequnce = 0\n");
 	}
 
 	mes_all.str = rtp;
@@ -224,7 +226,7 @@ int rtp_to_srtp(struct pthread_arguments *p_a, unsigned char *rtp, unsigned char
 
 
 	check_session_keys_rtp(&p_a->crypto);
-	index = packet_index(p_a->sequnce_new, index);
+	index = p_a->index = packet_index(p_a->sequnce_new, index);
 
 	crypto_encrypt_rtp(&p_a->crypto, &payload, rtp_h.ssrc, index);
 	/** Function Hash all mess and add    
@@ -235,7 +237,8 @@ int rtp_to_srtp(struct pthread_arguments *p_a, unsigned char *rtp, unsigned char
 	payload.len += p_a->crypto.params.crypto_suite->srtp_auth_tag;
 	mes_all.len += p_a->crypto.params.crypto_suite->srtp_auth_tag;
 	p_a->sequnce_new += 1;
-	p_a->sequnce_new = p_a->sequnce_new % 0x01FFFF;
+	if(p_a->sequnce_new == 0)
+		printf("Error ------ Error Sequnce = 0\n");
 	*l = mes_all.len;
 	return sps_mes.len;
 }
