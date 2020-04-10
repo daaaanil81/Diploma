@@ -1,0 +1,15 @@
+function clickedIP(val) {
+    document.location="/Sites/stream.html?ip="+'10.168.0.' + val;
+}
+
+function clickedAdd() {
+    // let ip = prompt('Enter plese Ip camera', ''); 
+    // var div = document.getElementById('div');
+    // div.insertAdjacentHTML('afterend', '<p>Пока</p>');
+}
+function createUrl() {
+    var input = document.getElementById('ip_addres_mobile');
+    document.getElementById('url_mobile').innerHTML = "rtsp://" + input.value + "/axis-media/media.amp";
+    input = document.getElementById('ip_addres_mobile');
+    document.getElementById('url_mobile').innerHTML = "rtsp://" + input.value + "/axis-media/media.amp";
+}

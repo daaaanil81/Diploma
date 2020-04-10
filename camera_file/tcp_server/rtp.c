@@ -127,29 +127,14 @@ int check_session_keys_rtp(struct crypto_context *c)
 	s.len = c->params.crypto_suite->session_key_len;
 	if (crypto_gen_session_key(c, &s, 0x00, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_key: ");
-		printText(c->session_key, 16);
-	}
 	s.str = (unsigned char *)c->session_auth_key;
 	s.len = c->params.crypto_suite->srtp_auth_key_len;
 	if (crypto_gen_session_key(c, &s, 0x01, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_auth_key: ");
-		printText(c->session_auth_key, 20);
-	}
 	s.str = (unsigned char *)c->session_salt;
 	s.len = c->params.crypto_suite->session_salt_len;
 	if (crypto_gen_session_key(c, &s, 0x02, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_salt: ");
-		printText(c->session_salt, 14);
-	}
 	c->have_session_key = 1;
 	crypto_init_session_key_rtp(c);
 

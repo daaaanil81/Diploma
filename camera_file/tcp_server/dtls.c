@@ -317,16 +317,9 @@ void dtls_connection_cleanup(struct dtls_connection *c)
 	if (c->ssl_ctx)
 		SSL_CTX_free(c->ssl_ctx);
 	printf("Free ssl_ctx\n");
-	SSL_shutdown(c->ssl);
 	if (c->ssl)
 		SSL_free(c->ssl);
 	printf("Free ssl\n");
-	if (c->r_bio)
-		BIO_free(c->r_bio);
-	printf("Free r_bio\n");
-	if (c->w_bio)
-		BIO_free(c->w_bio);
-	printf("Free w_bio\n");
 	bzero(c, sizeof(struct dtls_connection));
 }
 void dtls_fingerprint_free(struct pthread_arguments *cert)
@@ -455,17 +448,7 @@ found:
 		   server->master_key[4], server->master_key[5], server->master_key[6], server->master_key[7],
 		   server->master_salt[0], server->master_salt[1], server->master_salt[2], server->master_salt[3],
 		   server->master_salt[4], server->master_salt[5], server->master_salt[6], server->master_salt[7]);
-	if (FLAG_TESTING)
-	{
-		for (size_t k = 0; k < 16; k++)
-		{
-			client->master_key[k] = master_key[k];
-		}
-		for (size_t k = 0; k < 14; k++)
-		{
-			client->master_salt[k] = master_salt[k];
-		}
-	}
+	
 	printf("DTLS-SRTP successfully negotiated\n");
 	return 0;
 
@@ -563,8 +546,9 @@ static int aes_cm_encrypt_rtp(struct crypto_context *c, struct str_key *payload,
 	ivi[1] ^= htonl(ssrc);
 	ivi[2] ^= idxh;
 	ivi[3] ^= idxl;
-	printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x --- INDEX ---> %lu\n", htonl(ssrc) ,ivi[1], ivi[2], ivi[3], idx);
+	//printf("SSRC = %u --- IvI[1] = %02x --- IVI[2] = %02x --- IvI[3] = %02x --- INDEX ---> %llu\n", htonl(ssrc) ,ivi[1], ivi[2], ivi[3], idx);
 	aes_ctr((unsigned char *)payload->str, payload, (EVP_CIPHER_CTX *)c->session_key_ctx[0], iv);
+        return 0;
 }
 
 /* rfc 3711, sections 4.2 and 4.2.1 */

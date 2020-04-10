@@ -32,8 +32,9 @@
 #define PLAY_BUFFER_SIZE 300 /// Size buffer for play camera
 #define STUN_HEADER 20 /// Size stun header
 #define STUN_HEADER_ATTR 4 /// Size stun header
+#define MAX_CLIENT 5
 #define SIZE_CAMERA 3  
-#define REQUEST 300
+#define REQUEST 600
 #define DEBUG 1
 #define HEADER_TYPE 0x0001
 #define MAGICK 0x2112A442
@@ -58,26 +59,38 @@
 #define DTLS_FINGERPRINT_MAX_SIZE 25
 #define DTLS_MESSAGES 1024
 #define BUFSIZE 4600
-#define NAMEDPIPE_NAME "/tmp/PipeOne"
 #define FLAG_TESTING 0 
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14
 #define SRTP_MAX_SESSION_KEY_LEN 32
 #define SRTP_MAX_SESSION_SALT_LEN 14
 #define SRTP_MAX_SESSION_AUTH_LEN 20
-struct str {
+#define PARSING_INDEX 2
+#define FLAG_SDP 0x1
+#define FLAG_ICE 0x2
+#define FLAG_RTSP_AUTH 0x4
+#define FLAG_TEARDOWN 0x8
+
+
+struct str
+{
     size_t len;
     char s[30];
 };
-struct str_key {
+
+struct str_key
+{
     unsigned char* str;
     unsigned int len;
 };
-struct dtls_connection {
+
+struct dtls_connection
+{
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	BIO *r_bio, *w_bio;
 };
+
 struct dtls_fingerprint
 {
     unsigned char digest_fingerprint[DTLS_FINGERPRINT_MAX_SIZE];
@@ -87,7 +100,8 @@ struct dtls_fingerprint
 
 struct crypto_suite;
 
-struct crypto_params {
+struct crypto_params
+{
 	const struct crypto_suite *crypto_suite;
 	unsigned char master_key[SRTP_MAX_MASTER_KEY_LEN];
 	unsigned char master_salt[SRTP_MAX_MASTER_SALT_LEN];
@@ -95,7 +109,8 @@ struct crypto_params {
 	unsigned int mki_len;
 };
 
-struct crypto_context {
+struct crypto_context
+{
 	struct crypto_params params;
 	struct crypto_params server_params;
 	char session_key[SRTP_MAX_SESSION_KEY_LEN]; /* k_e */
@@ -116,7 +131,8 @@ typedef int (*session_key_cleanup_func)(struct crypto_context *);
 
 
 
-struct crypto_suite {
+struct crypto_suite
+{
 	const char *name;
 	const char *dtls_name;
 	unsigned int
@@ -141,19 +157,17 @@ struct crypto_suite {
 	hash_func_rtcp hash_rtcp;
 	session_key_init_func session_key_init;
 	session_key_cleanup_func session_key_cleanup;
-	//const char *dtls_profile_code; // unused
 	const void *lib_cipher_ptr;
 	unsigned int idx; // filled in during crypto_init_main()
 };
 
 struct pthread_arguments
 {
-    struct sockaddr_in sddr; /// Struct for create tcp socket for requests camera
     struct sockaddr_in stun_from_server; /// Struct for create udp socket for request to google stun server
     char ip_camera[20]; /// Ip address camera's
     int camerafd; /// Identificator for request on request
-	int socket_rtp_fd; /// Socket for  camera rtp stream
-	int socket_rtcp_fd; /// Socket for  camera rtcp stream
+    int socket_rtp_fd; /// Socket for  camera rtp stream
+    int socket_rtcp_fd; /// Socket for  camera rtcp stream
     char sdp_offer[4100]; /// Container for sdp from browser
     char sdp_camera[1024]; /// Container for sdp from camera
     char sdp_answer[4400]; /// Container for sdp from server
@@ -175,28 +189,32 @@ struct pthread_arguments
     unsigned short size_sps;
     unsigned char pps[10];
     unsigned short size_pps;
+    unsigned char realm[30];
+    unsigned char nonce[100];
+    unsigned char uri[50];
     struct dtls_fingerprint attr_fingerprint;
     struct dtls_connection dtls_cert;
     struct crypto_context crypto;
-	struct crypto_context crypto_from_camera;
-	struct crypto_context crypto_rtcp;
-	uint32_t index_rtcp;
+    struct crypto_context crypto_from_camera;
+    struct crypto_context crypto_rtcp;
+    uint32_t index_rtcp;
     X509* x509;
     EVP_PKEY* pkey;
     BIGNUM *exponent;
     BIGNUM* serial_number;
-	RSA *rsa;
-	ASN1_INTEGER *asn1_serial_number;
-	X509_NAME *name;
+    RSA *rsa;
+    ASN1_INTEGER *asn1_serial_number;
+    X509_NAME *name;
     uint64_t index;
-	uint16_t sequnce_origin;
-	uint16_t sequnce_new;
-	uint32_t qSec;
+    uint8_t index_list;
+    uint16_t sequnce_origin;
+    uint16_t sequnce_new;
+    uint32_t qSec;
+    uint8_t flags;
 };
 void gen_random(unsigned char *s, const int len);
 static char ip_server_program[16];
 void printText(unsigned char* text, unsigned int len);
-static unsigned int master_key[] = {0x99,0xe1,0x3f,0x5f,0x45,0x95,0x1c,0x6f,0x5a,0x87,0xd3,0x05,0xea,0x84,0x2b,0xa5};
-static unsigned int master_salt[] = {0x7d,0x9e,0x1e,0xdf,0xaa,0xda,0xba,0xa1,0x0f,0xfb,0x08,0xad,0xf2,0x7f};
+
 
 #endif

@@ -22,29 +22,14 @@ int check_session_keys_rtcp(struct crypto_context *c)
 	s.len = c->params.crypto_suite->session_key_len;
 	if (crypto_gen_session_key(c, &s, 0x03, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_key: ");
-		printText(c->session_key, 16);
-	}
 	s.str = (unsigned char *)c->session_auth_key;
 	s.len = c->params.crypto_suite->srtp_auth_key_len;
 	if (crypto_gen_session_key(c, &s, 0x04, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_auth_key: ");
-		printText(c->session_auth_key, 20);
-	}
 	s.str = (unsigned char *)c->session_salt;
 	s.len = c->params.crypto_suite->session_salt_len;
 	if (crypto_gen_session_key(c, &s, 0x05, 6))
 		goto error;
-	if (FLAG_TESTING)
-	{
-		printf("session_salt: ");
-		printText(c->session_salt, 14);
-	}
 	c->have_session_key = 1;
 	crypto_init_session_key_rtcp(c);
 	return 0;
@@ -90,7 +75,7 @@ error:
 	printf("Discarded invalid SRTCP packet");
 	return -1;
 }
-int rtcp_avp_to_savp(struct crypto_context *crypto_from_camera, unsigned char *rtcp, int* length, int* index_rtcp) 
+int rtcp_avp_to_savp(struct crypto_context *crypto_from_camera, unsigned char *rtcp, int* length, uint32_t* index_rtcp) 
 {
     struct rtcp_header rtcp_h;
 	u_int32_t *idx;
@@ -100,16 +85,16 @@ int rtcp_avp_to_savp(struct crypto_context *crypto_from_camera, unsigned char *r
 		return -1;
     to_auth.str = rtcp;
     to_auth.len = *length;
-	printf("SRTCP index --------------> %d\n", *index_rtcp);
-	printf("RTCP avp_savp SSRC: -------------------> %u\n", rtcp_h.ssrc);
-	if (crypto_encrypt_rtcp(crypto_from_camera, &payload, rtcp_h.ssrc, *index_rtcp))
-		return -1;
-
-	idx = (void *) to_auth.str + to_auth.len;
-	*idx = htonl((0x80000000ULL | *index_rtcp));
-	to_auth.len += sizeof(*idx);
-	crypto_from_camera->params.crypto_suite->hash_rtcp(crypto_from_camera, to_auth.str + to_auth.len, &to_auth);
-	to_auth.len += crypto_from_camera->params.crypto_suite->srtcp_auth_tag;
+    printf("SRTCP index -------------->%u\n", *index_rtcp);
+    printf("RTCP avp_savp SSRC: -------------------> %u\n", rtcp_h.ssrc);
+    if (crypto_encrypt_rtcp(crypto_from_camera, &payload, rtcp_h.ssrc, *index_rtcp))
+        return -1;
+    
+    idx = (void *) to_auth.str + to_auth.len;
+    *idx = htonl((0x80000000ULL | *index_rtcp));
+    to_auth.len += sizeof(*idx);
+    crypto_from_camera->params.crypto_suite->hash_rtcp(crypto_from_camera, to_auth.str + to_auth.len, &to_auth);
+    to_auth.len += crypto_from_camera->params.crypto_suite->srtcp_auth_tag;
     *length = to_auth.len;
     (*index_rtcp)++;
 	return 1;

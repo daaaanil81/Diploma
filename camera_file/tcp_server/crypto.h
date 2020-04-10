@@ -1,7 +1,6 @@
 #ifndef _CRYPTO_
 #define _CRYPTO_
 #include <string.h>
-#include <glib.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <sys/types.h>

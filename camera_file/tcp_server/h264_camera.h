@@ -13,37 +13,37 @@
 *
 *
 */
-int connect_camera(struct sockaddr_in* , int* , char* , uint32_t*);
+int connect_camera(struct pthread_arguments*);
 /** Option into camera
 *
 *
 *
 */
-int option_to_camera(int, char* , uint32_t* );
+int option_to_camera(struct pthread_arguments*);
 /* Describe into camera
 *
 *
 *
 */
-int describe_to_camera(int, char* , char* , uint32_t* );
+int describe_to_camera(struct pthread_arguments*);
 /* Setup into camera
 *
 *
 *
 */
-int setup_to_camera(int, char* , unsigned int , char* , unsigned int* , uint32_t* );
+int setup_to_camera(struct pthread_arguments*);
 /* Play into camera
 *
 *
 *
 */
-int play_to_camera(int, char* , char* , uint32_t* );
+int play_to_camera(struct pthread_arguments* );
 /* Teardown into camera
 *
 *
 *
 */
-int teardown_to_camera(int , char* , char* , uint32_t* );
+int teardown_to_camera(struct pthread_arguments* );
 /** Create server's ice candidate for browser
 *
 *
@@ -61,15 +61,17 @@ int sdpParse(struct pthread_arguments* );
 *
 *
 */
-void iceParse(struct pthread_arguments* );
-void pwdParse(struct pthread_arguments* );
-void free_all(struct pthread_arguments* );
-void setSockaddr(struct sockaddr_in* , unsigned char* , unsigned int t);
-int createSockaddr(struct sockaddr_in* , unsigned char*, unsigned int p, int* );
-int parameters_to_camera(int camerafd, char* host, char* session, uint32_t* qsec);
-
-
-
+void iceParse(struct pthread_arguments*);
+int pwdParse(struct pthread_arguments*);
+void free_all(struct pthread_arguments*);
+void setSockaddr(struct sockaddr_in*, unsigned char* , unsigned int );
+int createSockaddr(struct sockaddr_in*, unsigned char*, unsigned int , int* );
+int parameters_to_camera(struct pthread_arguments* p_a);
+void sendSocketMessage(struct lws *, char*, int);
+void init_ports(unsigned int* , unsigned int* , int);
+void MD5_encoder(unsigned char*, unsigned char*,unsigned int);
+void *udp_stream(void *arg);
+int send_Stun_Sdp_Ice(struct pthread_arguments* arg_pthread, int index_list, struct lws* wsi);
 
 static char option_camera_first[] = "OPTIONS rtsp://";
 static char option_camera_second[] = "/axis-media/media.amp RTSP/1.0\r\nCSeq: ";
@@ -91,26 +93,30 @@ static char play_camera_thirt[] = "\r\nRange: npt=0.000-\r\n\r\n";
 static char parameters_camera_first[] = "GET_PARAMETER rtsp://";
 static char parameters_camera_second[] = "/axis-media/media.amp RTSP/1.0\r\nCSeq: ";
 static char parameters_camera_three[] = "\r\nUser-Agent: WebRTC_Dan\r\nSession: ";
-//static char parameters_camera_four[] = "\r\nContent-Length: 26\r\nContent-Type: text/parameters\r\n\r\npackets_received\r\njitter\r\n\r\n";
 
+static char teardown_camera_first[] = "TEARDOWN rtsp://";
+static char teardown_camera_second[] = "/axis-media/media.amp RTSP/1.0\r\nCSeq: ";
+static char teardown_camera_three[] = "\r\nUser-Agent: RTSPClient\r\nSession: ";
 
-// GET_PARAMETER rtsp://example.com/fizzle/foo RTSP/2.0
-//            CSeq: 431
-//            User-Agent: PhonyClient/1.2
-//            Session: OccldOFFq23KwjYpAnBbUr
-//            Content-Length: 26
-//            Content-Type: text/parameters
 static char ice_candidate_first[] = "candidate:1968211759 1 udp 2122252543 ";
 static char ice_candidate_second[] = " typ host generation 0 ufrag sEMT network-cost 999";
 static char type_sdp[] = "SDP";
 static char type_ice[] = "ICE";
-static unsigned int port_ice_start = 53532;
-static unsigned int port_camera_start = 43700; //rtcp = 43700
-static bool list[5] = {0};
-static pthread_t tchilds[5]; /// Identificator threads
+
+static char command_describe[] = "DESCRIBE";
+static char command_setup[] = "SETUP";
+static char command_play[] = "PLAY";
+static char command_get_parameter[] = "GET_PARAMETER";
+static char command_teardown[] = "TEARDOWN";
+
+static char error_unauthorized[] = "401"; 
+static unsigned int port_ice_start = 53532; // Port for ice candidates server 53532 - 53536
+static unsigned int port_camera_start = 43700; //Port for received rtp and rtcp from camera 43700 - 43704
+static bool list[MAX_CLIENT] = {0};
+static pthread_t tchilds[MAX_CLIENT] = {0}; /// Identificator threads
 static bool other_user = false;
 static bool ice_step = false;
 static bool sdp_step = false;
 static bool flag_sps_send = false;
-static struct pthread_arguments* pthreads[5] = {0};
+static struct pthread_arguments* pthreads[MAX_CLIENT] = {0};
 #endif

@@ -319,7 +319,7 @@ static int callback_dumb_increment(struct lws *wsi, enum lws_callback_reasons re
             list[index_list] = false;
             pthread_join(tchilds[index_list], NULL);
             break;
-        }
+        }11
     }                         // LWS_CALLBACK_RECEIVE
     case LWS_CALLBACK_CLOSED: /// Close server
         printf("Close\n");

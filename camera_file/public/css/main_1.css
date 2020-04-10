@@ -8,11 +8,17 @@
   top: 0; bottom: 0; /* Вся высота */
   z-index: -1; /* Фон ниже текста */
   /* Параметры фона */
-  background: url(/Users/danilpetrov/Diploma/camera_file/images/back_login.png) center / cover no-repeat;
+  background: url(../images/back_login.png) center / cover no-repeat;
   filter: blur(5px); /* Размытие */
  }
  body {
   color: #fff; /* Цвет текста */
+ }
+ .img{
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%,-50%);
  }
 .login-box{
   width: 280px;
