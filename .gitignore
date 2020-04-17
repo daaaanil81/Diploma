@@ -8,3 +8,4 @@ Test/
 test_certificate/
 stream_to_file/
 _config.yml
+node_modules/
