@@ -1,4 +1,10 @@
 *~
 .DS_Store
-.idea
-ws-serverSYM
+.idea/
+ws-server.dSYM
+Test/
+~*
+*~
+test_certificate/
+stream_to_file/
+_config.yml
