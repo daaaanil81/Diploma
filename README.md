@@ -1,4 +1,4 @@
-![alt text](https://github.com/daaaanil81/Diploma/blob/master/public/images/logo2.png)
+![overview](https://github.com/daaaanil81/Diploma/blob/master/public/images/logo2.png)
 # Diploma
 My Diploma work
 In this repositorie, I keep my diploma work, because I don`t want his to lose.
