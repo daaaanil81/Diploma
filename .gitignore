@@ -5,6 +5,10 @@ ws-server.dSYM
 Test/
 ~*
 *~
+Docs/history.txt 
+Docs/a.pcap 
+Docs/Diplom.odt 
+Docs/a.pcap  
 test_certificate/
 stream_to_file/
 _config.yml
