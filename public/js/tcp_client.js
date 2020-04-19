@@ -18,8 +18,10 @@ var options = {
 };
 var flag_ICE = true;
 var flag_Connection = false;
+var host = "";
+
 //#####################################################################################################################
-const host = window.location.href.split("?")[1].split("=")[1];
+host = window.location.href.split("?")[1].split("=")[1];
 document.getElementById("IdText").innerText = host;
 
 //#####################################################################################################################
@@ -79,6 +81,7 @@ connection.onmessage = function (event) {
         document.getElementById("status").innerText = event.data.substr(2);
     }
 };
+
 function sendIceCandidate(event) {
     if (event.candidate) {
         console.log("Candidate: " + event.candidate.candidate);
@@ -142,6 +145,8 @@ window.onunload = function() {
     connection.send(index + ':CLOSE');
     console.log("Close pages");
 };
+
+
 
 function closeAll() {
     localConnection.close();

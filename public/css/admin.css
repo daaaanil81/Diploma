@@ -116,6 +116,12 @@
     left: 0%;
 }
 
+.div_form_delete
+{
+    background: rgba(70,130,180,.9);
+    border-radius: 30px;
+}
+
 li .dropdown {
   display: inline-block;
 }
