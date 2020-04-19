@@ -6,4 +6,4 @@
      - SHOW DATABASES - show all databases on server
      - CREATE DATABASE name; - create database with title name
   Create table in database    
-3 
+  3. node createTable.js
