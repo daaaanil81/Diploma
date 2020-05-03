@@ -14,5 +14,6 @@ stream_to_file/
 _config.yml
 node_modules/
 test.*
+tcp_server/time/
 package-lock.json
 package.json
